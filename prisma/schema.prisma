@@ -58,21 +58,22 @@ model Folder {
 }
 
 model Box {
-  box_id      String          @id @default(uuid()) @db.Uuid
-  creator_id  String          @db.Uuid
-  folder_id   String          @db.Uuid
-  position    Int
-  name        String
-  description String
-  public      Boolean
-  isDeleted   Boolean
-  creator     User            @relation(fields: [creator_id], references: [user_id])
-  folder      Folder          @relation(fields: [folder_id], references: [folder_id])
-  artists     BoxArtist[]
-  tracks      BoxTrack[]
-  albums      BoxAlbum[]
-  playlists   BoxPlaylist[]
-  subsections BoxSubsection[]
+  box_id          String               @id @default(uuid()) @db.Uuid
+  creator_id      String               @db.Uuid
+  folder_id       String               @db.Uuid
+  position        Int
+  name            String
+  description     String
+  public          Boolean
+  isDeleted       Boolean
+  creator         User                 @relation(fields: [creator_id], references: [user_id])
+  folder          Folder               @relation(fields: [folder_id], references: [folder_id])
+  artists         BoxArtist[]
+  tracks          BoxTrack[]
+  albums          BoxAlbum[]
+  playlists       BoxPlaylist[]
+  subsections     BoxSubsection[]
+  sectionsettings BoxSectionSettings[]
 }
 
 model BoxArtist {
@@ -117,6 +118,20 @@ model BoxPlaylist {
   box         Box      @relation(fields: [box_id], references: [box_id])
 
   @@id([playlist_id, box_id])
+}
+
+model BoxSectionSettings {
+  section_settings_id Int     @id @default(autoincrement())
+  box_id              String  @unique @db.Uuid
+  type                String
+  primary_sorting     String
+  secondary_sorting   String
+  view                String
+  sorting_order       String
+  display_grouping    Boolean
+  display_subsections Boolean
+  visibility          Boolean
+  box                 Box?    @relation(fields: [box_id], references: [box_id])
 }
 
 model BoxSubsection {

@@ -1,12 +1,13 @@
-export interface UserCreateRequest {
-  displayName: string
+export interface UserCreateDTO {
+  firebaseId: string
+  username: string
+  firstName: string
+  lastName: string
   image: string
   email: string
   services: {
     [key: string]: string
-  },
-  dashboardFolders: string[],
-  dashboardBoxes: string[]
+  }
 }
 
 export interface User {

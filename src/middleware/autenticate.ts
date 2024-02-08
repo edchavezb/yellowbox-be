@@ -21,6 +21,23 @@ export default async function (req: Request, res: Response, next: NextFunction) 
     const user = await prisma.user.findFirst({
       where: {
         firebase_id: firebaseUser.user_id
+      },
+      include: {
+        boxes: {
+          where: {
+            folder_id: undefined
+          },
+          select: {
+            box_id: true,
+            name: true
+          }
+        },
+        folders: {
+          select: {
+            folder_id: true,
+            name: true
+          }
+        }
       }
     });
 

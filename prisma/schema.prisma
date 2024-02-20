@@ -60,16 +60,16 @@ model Folder {
 model Box {
   box_id          String               @id @default(uuid()) @db.Uuid
   creator_id      String               @db.Uuid
-  folder_id       String               @db.Uuid
+  folder_id       String?              @db.Uuid
   position        Int
   folder_position Int?
   name            String
   description     String
-  is_public       Boolean
-  is_deleted      Boolean
-  created_at      DateTime
+  is_public       Boolean              @default(true)
+  is_deleted      Boolean              @default(false)
+  created_at      DateTime             @default(now())
   creator         User                 @relation(fields: [creator_id], references: [user_id])
-  folder          Folder               @relation(fields: [folder_id], references: [folder_id])
+  folder          Folder?              @relation(fields: [folder_id], references: [folder_id])
   artists         BoxArtist[]
   tracks          BoxTrack[]
   albums          BoxAlbum[]

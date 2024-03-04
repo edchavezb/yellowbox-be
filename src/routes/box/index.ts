@@ -301,29 +301,44 @@ routes.post("/:boxId/subsections", async (req, res) => {
   }
 });
 
-// Update a box's subsections. No longer needed. Used to reorder subsections.
-// routes.put("/:boxId/subsections", async (req, res) => {
-//   try {
-//     const { boxId } = req.params;
-//     const updatedBox = await prisma.box.update({
-//       where: {
-//         id: parseInt(boxId)
-//       },
-//       data: {
-//         subSections: {
-//           set: req.body
-//         }
-//       },
-//       select: {
-//         subSections: true
-//       }
-//     });
-//     return res.status(201).json(updatedBox.subSections);
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Sorry, something went wrong :/" });
-//   }
-// });
+// Endpoint to reorder a subsection within a box
+routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
+  try {
+    const { boxId, subsectionId } = req.params;
+    const newPosition = parseInt(req.body.position);
+
+    // Get the target subsection
+    const targetSubsection = await prisma.boxSubsection.findUnique({
+      where: { subsection_id: parseInt(subsectionId) },
+      select: { position: true }
+    });
+
+    if (!targetSubsection) {
+      return res.status(404).json({ error: "Subsection not found" });
+    }
+
+    // Update the position of the target subsection
+    await prisma.boxSubsection.update({
+      where: { subsection_id: parseInt(subsectionId) },
+      data: { position: newPosition }
+    });
+
+    // Update the positions of other subsections in the same box
+    await prisma.boxSubsection.updateMany({
+      where: {
+        box_id: boxId,
+        subsection_id: { not: parseInt(subsectionId) }, // Exclude the target subsection
+        position: { gte: targetSubsection.position } // Select subsections with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected subsections by 1
+    });
+
+    return res.status(200).json({ message: "Subsection reordered successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
 
 // Edit a subsection's name
 routes.put("/subsections/:subsectionId", async (req, res) => {

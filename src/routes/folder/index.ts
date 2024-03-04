@@ -146,14 +146,15 @@ routes.delete("/:folderId", async (req, res) => {
 routes.post("/:folderId/boxes", async (req, res) => {
   try {
     const { folderId } = req.params;
-    const { boxId } = req.body;
+    const { boxId, folderPosition } = req.body;
 
     await prisma.box.update({
       where: {
         box_id: boxId as string
       },
       data: {
-        folder_id: folderId
+        folder_id: folderId,
+        folder_position: folderPosition
       }
     });
 
@@ -189,27 +190,44 @@ routes.post("/:folderId/boxes", async (req, res) => {
   }
 });
 
-// Update a folder's boxes. Only used to reorder boxes within a folder so need to update it
-// routes.put("/:folderId/boxes", async (req, res) => {
-//   try {
-//     const { folderId } = req.params;
-//     const { updatedItems } = req.body;
+// Reorder a box within a folder
+routes.put("/:folderId/reorderBox/:boxId", async (req, res) => {
+  try {
+    const { folderId, boxId } = req.params;
+    const newPosition = parseInt(req.body.position);
 
-//     const updatedFolder = await prisma.folder.update({
-//       where: {
-//         folder_id: folderId as string
-//       },
-//       data: {
-//         boxes: updatedItems
-//       }
-//     });
+    // Get the target box
+    const targetBox = await prisma.box.findUnique({
+      where: { box_id: boxId },
+      select: { folder_position: true }
+    });
 
-//     return res.status(200).json({ updatedFolder });
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Sorry, something went wrong :/" });
-//   }
-// });
+    if (!targetBox) {
+      return res.status(404).json({ error: "Box not found" });
+    }
+
+    // Update the position of the target box
+    await prisma.box.update({
+      where: { box_id: boxId },
+      data: { folder_position: newPosition }
+    });
+
+    // Update the positions of other boxes in the same folder
+    await prisma.box.updateMany({
+      where: {
+        folder_id: folderId,
+        box_id: { not: boxId }, // Exclude the target box
+        position: { gte: newPosition } // Select boxes with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected boxes by 1
+    });
+
+    return res.status(200).json({ message: "Box reordered successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
 
 // Update a folder box's name. No longer necessary. Just need to refetch boxes in a folder when the box name is updated.
 // routes.put("/:folderId/boxes/:boxId", async (req, res) => {
@@ -252,7 +270,8 @@ routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
         box_id: boxId as string
       },
       data: {
-        folder_id: null
+        folder_id: null,
+        folder_position: null
       }
     });
 
@@ -289,23 +308,24 @@ routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
 });
 
 // Move a box between folders
-routes.put("/:sourceId/boxes/:boxId", async (req, res) => {
+routes.put("/:sourceFolderId/boxes/:boxId", async (req, res) => {
   try {
-    const { sourceId, boxId } = req.params;
-    const { targetId } = req.body;
+    const { sourceFolderId, boxId } = req.params;
+    const { targetFolderId, folderPosition } = req.body;
 
     await prisma.box.update({
       where: {
         box_id: boxId as string
       },
       data: {
-        folder_id: targetId
+        folder_id: targetFolderId,
+        folder_position: folderPosition
       }
     });
 
     const updatedSourceFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: sourceId as string
+        folder_id: sourceFolderId as string
       },
       include: {
         boxes: {
@@ -319,7 +339,7 @@ routes.put("/:sourceId/boxes/:boxId", async (req, res) => {
 
     const updatedTargetFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: targetId as string
+        folder_id: targetFolderId as string
       },
       include: {
         boxes: {

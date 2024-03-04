@@ -33,25 +33,25 @@ routes.post("/", async (req, res) => {
     const userData: UserCreateDTO = req.body;
     const newUser = await prisma.user.create({
       data: {
-        firebase_id: userData.firebaseId,
+        firebaseId: userData.firebaseId,
         username: userData.username,
-        first_name: userData.firstName,
-        last_name: userData.lastName,
-        image_url: userData.image,
-        linked_services: userData.services
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        imageUrl: userData.image,
+        linkedServices: userData.services
       }
     });
 
-    // Use the user_id to create user billing and user account management data
+    // Use the userId to create user billing and user account management data
     await prisma.$transaction([
       prisma.userBilling.create({
         data: {
-          user_id: newUser.user_id
+          userId: newUser.userId
         }
       }),
       prisma.userAccountManagementData.create({
         data: {
-          user_id: newUser.user_id,
+          userId: newUser.userId,
           email: userData.email
         }
       })
@@ -72,7 +72,7 @@ routes.put("/:userId", async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: {
-        user_id: userId
+        userId: userId
       },
       data: userData
     });
@@ -90,10 +90,10 @@ routes.put("/:userId/verifyEmail", async (req, res) => {
 
     const updatedUser = await prisma.userAccountManagementData.update({
       where: {
-        user_id: userId
+        userId: userId
       },
       data: {
-        email_verified: true
+        emailVerified: true
       }
     });
     return res.status(201).json(updatedUser);
@@ -111,10 +111,10 @@ routes.post("/:userId/spotify", async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: {
-        user_id: userId
+        userId: userId
       },
       data: {
-        linked_services: {
+        linkedServices: {
           set: {
             spotify: spotifyData
           }
@@ -136,10 +136,10 @@ routes.post("/:userId/lastfm", async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: {
-        user_id: userId
+        userId: userId
       },
       data: {
-        linked_services: {
+        linkedServices: {
           set: {
             lastfm: lastfmData
           }
@@ -160,12 +160,12 @@ routes.get("/:userId/boxes", async (req, res) => {
     const boxes = await prisma.box.findMany({
       where: {
         AND: [
-          { creator_id: userId },
-          { NOT: { is_deleted: true } }
+          { creatorId: userId },
+          { NOT: { isDeleted: true } }
         ]
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true
       }
     });
@@ -182,10 +182,63 @@ routes.get("/:userId/folders", async (req, res) => {
     const { userId } = req.params;
     const folders = await prisma.folder.findMany({
       where: {
-        creator_id: userId
+        creatorId: userId
       }
     });
     return res.json(folders);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Reorder user boxes
+routes.put("/:userId/reorderBoxes", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { boxId, newPosition } = req.body;
+
+    // Get the box to be reordered
+    const boxToReorder = await prisma.box.findUnique({
+      where: {
+        boxId: boxId
+      }
+    });
+
+    if (!boxToReorder) {
+      return res.status(404).json({ message: "Box not found." });
+    }
+
+    // Update the position of the box to be reordered
+    const updatedBox = await prisma.box.update({
+      where: {
+        boxId: boxId
+      },
+      data: {
+        position: newPosition
+      }
+    });
+
+    // Increment the position of other boxes with the same creatorId
+    await prisma.box.updateMany({
+      where: {
+        creatorId: userId,
+        position: {
+          gte: newPosition
+        },
+        boxId: {
+          not: boxId
+        }
+      },
+      data: {
+        position: {
+          increment: 1
+        }
+      }
+    });
+
+    // Return the updated box
+    return res.status(200).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

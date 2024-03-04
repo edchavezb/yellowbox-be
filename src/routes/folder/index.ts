@@ -37,6 +37,14 @@ routes.get("/multiple", async (req, res) => {
         folderId: {
           in: folderIds
         }
+      },
+      include: {
+        boxes: {
+          select: {
+            boxId: true,
+            name: true
+          }
+        }
       }
     });
     return res.status(200).json(sortedFolders);
@@ -228,37 +236,6 @@ routes.put("/:folderId/reorderBox/:boxId", async (req, res) => {
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
-
-// Update a folder box's name. No longer necessary. Just need to refetch boxes in a folder when the box name is updated.
-// routes.put("/:folderId/boxes/:boxId", async (req, res) => {
-//   try {
-//     const { folderId, boxId } = req.params;
-//     const { name } = req.body;
-
-//     const updatedFolder = await prisma.folder.update({
-//       where: {
-//         folderId: folderId as string
-//       },
-//       data: {
-//         boxes: {
-//           update: {
-//             where: {
-//               boxId: boxId
-//             },
-//             data: {
-//               box_name: name
-//             }
-//           }
-//         }
-//       }
-//     });
-
-//     return res.status(200).json({ updatedFolder });
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Sorry, something went wrong :/" });
-//   }
-// });
 
 // Remove a box from a folder
 routes.delete("/:folderId/boxes/:boxId", async (req, res) => {

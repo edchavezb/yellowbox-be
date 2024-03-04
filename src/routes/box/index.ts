@@ -13,12 +13,12 @@ routes.get("/", async (req, res) => {
     const box = await prisma.box.findFirst({
       where: {
         AND: {
-          box_id: boxId as string,
-          is_deleted: false
+          boxId: boxId as string,
+          isDeleted: false
         }
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true,
         description: true,
         creator: true
@@ -37,12 +37,12 @@ routes.get("/multiple", async (req, res) => {
     const boxIds = extractArrayQueryParam(req, 'id');
     const sortedBoxes = await prisma.box.findMany({
       where: {
-        box_id: {
+        boxId: {
           in: boxIds
         }
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true
       }
     });
@@ -60,7 +60,7 @@ routes.post("/", async (req, res) => {
     const newBox = await prisma.box.create({
       data: userBox
     });
-    return res.status(201).json({ boxId: newBox.box_id, boxName: newBox.name });
+    return res.status(201).json({ boxId: newBox.boxId, boxName: newBox.name });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -75,7 +75,7 @@ routes.put("/:boxId", async (req, res) => {
 
     const updatedBox = await prisma.box.update({
       where: {
-        box_id: boxId
+        boxId: boxId
       },
       data: replacementBox
     });
@@ -94,22 +94,22 @@ routes.put("/:boxId/delete", async (req, res) => {
     const { containingFolder, folderId } = req.body;
     const updatedBox = await prisma.box.update({
       where: {
-        box_id: boxId
+        boxId: boxId
       },
       data: {
-        is_deleted: true,
-        folder_id: null
+        isDeleted: true,
+        folderId: null
       }
     });
     if (containingFolder) {
       const updatedFolder = await prisma.folder.findFirst({
         where: {
-          folder_id: folderId
+          folderId: folderId
         },
         include: {
           boxes: {
             select: {
-              box_id: true,
+              boxId: true,
               name: true 
             }
           }
@@ -119,15 +119,15 @@ routes.put("/:boxId/delete", async (req, res) => {
     } else {
       const updatedUser = await prisma.user.findFirst({
         where: {
-          user_id: updatedBox.creator_id
+          userId: updatedBox.creatorId
         },
         include: {
           boxes: {
             where: {
-              folder_id: null
+              folderId: null
             },
             select : {
-              box_id: true,
+              boxId: true,
               name: true
             }
           }
@@ -149,7 +149,7 @@ routes.post("/:boxId/clone", async (req, res) => {
 
     const originalBox = await prisma.box.findUnique({
       where: {
-        box_id: boxId
+        boxId: boxId
       }
     });
 
@@ -162,12 +162,12 @@ routes.post("/:boxId/clone", async (req, res) => {
         ...originalBox,
         name,
         description,
-        is_public: isPublic,
+        isPublic: isPublic,
         creator
       }
     });
 
-    return res.status(201).json({ boxId: newBox.box_id, boxName: newBox.name });
+    return res.status(201).json({ boxId: newBox.boxId, boxName: newBox.name });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -182,11 +182,11 @@ routes.put("/:boxId/boxInfo", async (req, res) => {
 
     const updatedBox = await prisma.box.update({
       where: {
-        box_id: boxId
+        boxId: boxId
       },
       data: {
         name,
-        is_public: isPublic,
+        isPublic: isPublic,
         description
       }
     });
@@ -206,7 +206,7 @@ routes.put("/:boxId/sectionSettings", async (req, res) => {
 
     const updatedBoxSectionSettings = await prisma.boxSectionSettings.update({
       where: {
-        box_id: boxId
+        boxId: boxId
       },
       data: updatedSorting
     });
@@ -281,16 +281,16 @@ routes.post("/:boxId/subsections", async (req, res) => {
     const { itemType, name, position } = req.body
     await prisma.boxSubsection.create({
       data: {
-        box_id: boxId,
-        item_type: itemType,     
-        subsection_name: name,
+        boxId: boxId,
+        itemType: itemType,     
+        subsectionName: name,
         position: position
       }
     });
 
     const updatedSubsections = prisma.boxSubsection.findMany({
       where: {
-        box_id: boxId
+        boxId: boxId
       }
     })
 
@@ -301,7 +301,7 @@ routes.post("/:boxId/subsections", async (req, res) => {
   }
 });
 
-// Endpoint to reorder a subsection within a box
+// Reorder a subsection within a box
 routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
@@ -309,7 +309,7 @@ routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
 
     // Get the target subsection
     const targetSubsection = await prisma.boxSubsection.findUnique({
-      where: { subsection_id: parseInt(subsectionId) },
+      where: { subsectionId: parseInt(subsectionId) },
       select: { position: true }
     });
 
@@ -319,15 +319,15 @@ routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
 
     // Update the position of the target subsection
     await prisma.boxSubsection.update({
-      where: { subsection_id: parseInt(subsectionId) },
+      where: { subsectionId: parseInt(subsectionId) },
       data: { position: newPosition }
     });
 
     // Update the positions of other subsections in the same box
     await prisma.boxSubsection.updateMany({
       where: {
-        box_id: boxId,
-        subsection_id: { not: parseInt(subsectionId) }, // Exclude the target subsection
+        boxId: boxId,
+        subsectionId: { not: parseInt(subsectionId) }, // Exclude the target subsection
         position: { gte: targetSubsection.position } // Select subsections with positions greater than or equal to the target position
       },
       data: { position: { increment: 1 } } // Increment the position of selected subsections by 1
@@ -347,16 +347,16 @@ routes.put("/subsections/:subsectionId", async (req, res) => {
     const { name } = req.body;
     await prisma.boxSubsection.update({
       where: {
-        subsection_id: parseInt(subsectionId)
+        subsectionId: parseInt(subsectionId)
       },
       data: {
-        subsection_name: name
+        subsectionName: name
       }
     });
 
     const updatedSubsections = prisma.boxSubsection.findMany({
       where: {
-        box_id: boxId
+        boxId: boxId
       }
     })
 
@@ -420,13 +420,13 @@ routes.delete("/:boxId/subsections/:subsectionId", async (req, res) => {
 
     await prisma.boxSubsection.delete({
       where: {
-        subsection_id: parseInt(subsectionId)
+        subsectionId: parseInt(subsectionId)
       }
     });
 
     const updatedSubsections = prisma.boxSubsection.findMany({
       where: {
-        box_id: boxId
+        boxId: boxId
       }
     })
 

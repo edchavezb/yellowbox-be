@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["relationJoins"]
@@ -12,246 +9,246 @@ datasource db {
 }
 
 model User {
-  user_id                 String                     @id @default(uuid()) @db.Uuid
-  firebase_id             String                     @unique
-  username                String                     @unique
-  first_name              String
-  last_name               String
-  image_url               String
-  linked_services         Json
-  account_management_data UserAccountManagementData?
-  billing                 UserBilling?
-  folders                 Folder[]
-  boxes                   Box[]
+  userId                String                     @id @default(uuid()) @db.Uuid
+  firebaseId            String                     @unique
+  username              String                     @unique
+  firstName             String
+  lastName              String
+  imageUrl              String
+  linkedServices        Json
+  accountManagementData UserAccountManagementData?
+  billing               UserBilling?
+  folders               Folder[]
+  boxes                 Box[]
 }
 
 model UserAccountManagementData {
-  account_management_id String       @id @default(uuid()) @db.Uuid
-  user_id               String       @unique @db.Uuid
-  account_tier          AccountTiers @default(FREE)
-  sign_up_date          DateTime     @default(now())
-  email_verified        Boolean      @default(false)
-  email                 String       @unique
-  show_tutorial         Boolean      @default(true)
-  user                  User         @relation(fields: [user_id], references: [user_id])
+  accountManagementId String       @id @default(uuid()) @db.Uuid
+  userId              String       @unique @db.Uuid
+  accountTier         AccountTiers @default(FREE)
+  signUpDate          DateTime     @default(now())
+  emailVerified       Boolean      @default(false)
+  email               String       @unique
+  showTutorial        Boolean      @default(true)
+  user                User         @relation(fields: [userId], references: [userId])
 }
 
 model UserBilling {
-  user_billing_id            String  @id @default(uuid()) @db.Uuid
-  user_id                    String  @unique @db.Uuid
-  stripe_customer_id         String?
-  stripe_subscription_id     String?
-  stripe_subscription_status String?
-  stripe_price_id            String?
-  stripe_product_id          String?
-  user                       User    @relation(fields: [user_id], references: [user_id])
+  userBillingId            String  @id @default(uuid()) @db.Uuid
+  userId                   String  @unique @db.Uuid
+  stripeCustomerId         String?
+  stripeSubscriptionId     String?
+  stripeSubscriptionStatus String?
+  stripePriceId            String?
+  stripeProductId          String?
+  user                     User    @relation(fields: [userId], references: [userId])
 }
 
 model Folder {
-  folder_id   String  @id @default(uuid()) @db.Uuid
-  creator_id  String  @db.Uuid
+  folderId    String  @id @default(uuid()) @db.Uuid
+  creatorId   String  @db.Uuid
   name        String
   description String
-  is_public   Boolean
-  creator     User    @relation(fields: [creator_id], references: [user_id])
+  isPublic    Boolean
+  creator     User    @relation(fields: [creatorId], references: [userId])
   boxes       Box[]
 }
 
 model Box {
-  box_id          String               @id @default(uuid()) @db.Uuid
-  creator_id      String               @db.Uuid
-  folder_id       String?              @db.Uuid
+  boxId           String               @id @default(uuid()) @db.Uuid
+  creatorId       String               @db.Uuid
+  folderId        String?              @db.Uuid
   position        Int
-  folder_position Int?
+  folderPosition  Int?
   name            String
   description     String
-  is_public       Boolean              @default(true)
-  is_deleted      Boolean              @default(false)
-  created_at      DateTime             @default(now())
-  creator         User                 @relation(fields: [creator_id], references: [user_id])
-  folder          Folder?              @relation(fields: [folder_id], references: [folder_id])
+  isPublic        Boolean              @default(true)
+  isDeleted       Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  creator         User                 @relation(fields: [creatorId], references: [userId])
+  folder          Folder?              @relation(fields: [folderId], references: [folderId])
   artists         BoxArtist[]
   tracks          BoxTrack[]
   albums          BoxAlbum[]
   playlists       BoxPlaylist[]
   subsections     BoxSubsection[]
-  sectionsettings BoxSectionSettings[]
+  sectionSettings BoxSectionSettings[]
 }
 
 model BoxArtist {
-  artist_id String @db.Uuid
-  box_id    String @db.Uuid
-  position  Int
-  note      String
-  artist    Artist @relation(fields: [artist_id], references: [artist_id])
-  box       Box    @relation(fields: [box_id], references: [box_id])
+  artistId String @db.Uuid
+  boxId    String @db.Uuid
+  position Int
+  note     String
+  artist   Artist @relation(fields: [artistId], references: [artistId])
+  box      Box    @relation(fields: [boxId], references: [boxId])
 
-  @@id([artist_id, box_id])
+  @@id([artistId, boxId])
 }
 
 model BoxTrack {
-  track_id String @db.Uuid
-  box_id   String @db.Uuid
+  trackId  String @db.Uuid
+  boxId    String @db.Uuid
   position Int
   note     String
-  track    Track  @relation(fields: [track_id], references: [track_id])
-  box      Box    @relation(fields: [box_id], references: [box_id])
+  track    Track  @relation(fields: [trackId], references: [trackId])
+  box      Box    @relation(fields: [boxId], references: [boxId])
 
-  @@id([track_id, box_id])
+  @@id([trackId, boxId])
 }
 
 model BoxAlbum {
-  album_id String @db.Uuid
-  box_id   String @db.Uuid
+  albumId  String @db.Uuid
+  boxId    String @db.Uuid
   position Int
   note     String
-  album    Album  @relation(fields: [album_id], references: [album_id])
-  box      Box    @relation(fields: [box_id], references: [box_id])
+  album    Album  @relation(fields: [albumId], references: [albumId])
+  box      Box    @relation(fields: [boxId], references: [boxId])
 
-  @@id([album_id, box_id])
+  @@id([albumId, boxId])
 }
 
 model BoxPlaylist {
-  playlist_id String   @db.Uuid
-  box_id      String   @db.Uuid
-  position    Int
-  note        String
-  playlist    Playlist @relation(fields: [playlist_id], references: [playlist_id])
-  box         Box      @relation(fields: [box_id], references: [box_id])
+  playlistId String   @db.Uuid
+  boxId      String   @db.Uuid
+  position   Int
+  note       String
+  playlist   Playlist @relation(fields: [playlistId], references: [playlistId])
+  box        Box      @relation(fields: [boxId], references: [boxId])
 
-  @@id([playlist_id, box_id])
+  @@id([playlistId, boxId])
 }
 
 model BoxSectionSettings {
-  section_settings_id Int     @id @default(autoincrement())
-  box_id              String  @unique @db.Uuid
-  type                String
-  primary_sorting     String
-  secondary_sorting   String
-  view                String
-  sorting_order       String
-  display_grouping    Boolean
-  display_subsections Boolean
-  is_visible          Boolean
-  box                 Box?    @relation(fields: [box_id], references: [box_id])
+  sectionSettingsId  Int     @id @default(autoincrement())
+  boxId              String  @unique @db.Uuid
+  type               String
+  primarySorting     String
+  secondarySorting   String
+  view               String
+  sortingOrder       String
+  displayGrouping    Boolean
+  displaySubsections Boolean
+  isVisible          Boolean
+  box                Box?    @relation(fields: [boxId], references: [boxId])
 }
 
 model BoxSubsection {
-  subsection_id   Int                     @id @default(autoincrement())
-  box_id          String                  @db.Uuid
-  item_type       String
-  subsection_name String
-  position        Int
-  box             Box                     @relation(fields: [box_id], references: [box_id])
-  artists         BoxSubsectionArtist[]
-  albums          BoxSubsectionAlbum[]
-  tracks          BoxSubsectionTrack[]
-  playlists       BoxSubsectionPlaylist[]
+  subsectionId   Int                     @id @default(autoincrement())
+  boxId          String                  @db.Uuid
+  itemType       String
+  subsectionName String
+  position       Int
+  box            Box                     @relation(fields: [boxId], references: [boxId])
+  artists        BoxSubsectionArtist[]
+  albums         BoxSubsectionAlbum[]
+  tracks         BoxSubsectionTrack[]
+  playlists      BoxSubsectionPlaylist[]
 }
 
 model BoxSubsectionArtist {
-  artist_id         String        @db.Uuid
-  box_subsection_id Int
-  position          Int
-  note              String
-  artist            Artist        @relation(fields: [artist_id], references: [artist_id])
-  box_subsection    BoxSubsection @relation(fields: [box_subsection_id], references: [subsection_id])
+  artistId        String        @db.Uuid
+  boxSubsectionId Int
+  position        Int
+  note            String
+  artist          Artist        @relation(fields: [artistId], references: [artistId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
-  @@id([artist_id, box_subsection_id])
+  @@id([artistId, boxSubsectionId])
 }
 
 model BoxSubsectionAlbum {
-  album_id          String        @db.Uuid
-  box_subsection_id Int
-  position          Int
-  note              String
-  album             Album         @relation(fields: [album_id], references: [album_id])
-  box_subsection    BoxSubsection @relation(fields: [box_subsection_id], references: [subsection_id])
+  albumId         String        @db.Uuid
+  boxSubsectionId Int
+  position        Int
+  note            String
+  album           Album         @relation(fields: [albumId], references: [albumId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
-  @@id([album_id, box_subsection_id])
+  @@id([albumId, boxSubsectionId])
 }
 
 model BoxSubsectionTrack {
-  track_id          String        @db.Uuid
-  box_subsection_id Int
-  position          Int
-  note              String
-  track             Track         @relation(fields: [track_id], references: [track_id])
-  box_subsection    BoxSubsection @relation(fields: [box_subsection_id], references: [subsection_id])
+  trackId         String        @db.Uuid
+  boxSubsectionId Int
+  position        Int
+  note            String
+  track           Track         @relation(fields: [trackId], references: [trackId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
-  @@id([track_id, box_subsection_id])
+  @@id([trackId, boxSubsectionId])
 }
 
 model BoxSubsectionPlaylist {
-  playlist_id       String        @db.Uuid
-  box_subsection_id Int
-  position          Int
-  note              String
-  playlist          Playlist      @relation(fields: [playlist_id], references: [playlist_id])
-  box_subsection    BoxSubsection @relation(fields: [box_subsection_id], references: [subsection_id])
+  playlistId      String        @db.Uuid
+  boxSubsectionId Int
+  position        Int
+  note            String
+  playlist        Playlist      @relation(fields: [playlistId], references: [playlistId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
-  @@id([playlist_id, box_subsection_id])
+  @@id([playlistId, boxSubsectionId])
 }
 
 model Artist {
-  artist_id       String                @id @default(uuid()) @db.Uuid
-  spotify_url     String
-  spotify_id      String
-  spotify_uri     String
-  name            String
-  popularity      Int
-  genres          String[]
-  type            String
-  box_subsections BoxSubsectionArtist[]
-  boxes           BoxArtist[]
+  artistId       String                @id @default(uuid()) @db.Uuid
+  spotifyUrl     String
+  spotifyId      String
+  spotifyUri     String
+  name           String
+  popularity     Int
+  genres         String[]
+  type           String
+  boxSubsections BoxSubsectionArtist[]
+  boxes          BoxArtist[]
 }
 
 model Album {
-  album_id        String               @id @default(uuid()) @db.Uuid
-  spotify_url     String
-  spotify_id      String
-  spotify_uri     String
-  images          Json
-  album_type      String
-  artists         Json
-  release_date    String
-  total_tracks    Int
-  type            String
-  box_subsections BoxSubsectionAlbum[]
-  boxes           BoxAlbum[]
+  albumId        String               @id @default(uuid()) @db.Uuid
+  spotifyUrl     String
+  spotifyId      String
+  spotifyUri     String
+  images         Json
+  albumType      String
+  artists        Json
+  releaseDate    String
+  totalTracks    Int
+  type           String
+  boxSubsections BoxSubsectionAlbum[]
+  boxes          BoxAlbum[]
 }
 
 model Playlist {
-  playlist_id     String                  @id @default(uuid()) @db.Uuid
-  name            String
-  description     String
-  spotify_url     String
-  spotify_id      String
-  spotify_uri     String
-  owner_name      String
-  owner_uri       String
-  images          Json
-  type            String
-  total_tracks    Int
-  box_subsections BoxSubsectionPlaylist[]
-  boxes           BoxPlaylist[]
+  playlistId     String                  @id @default(uuid()) @db.Uuid
+  name           String
+  description    String
+  spotifyUrl     String
+  spotifyId      String
+  spotifyUri     String
+  ownerName      String
+  ownerUri       String
+  images         Json
+  type           String
+  totalTracks    Int
+  boxSubsections BoxSubsectionPlaylist[]
+  boxes          BoxPlaylist[]
 }
 
 model Track {
-  track_id        String               @id @default(uuid()) @db.Uuid
-  spotify_url     String
-  spotify_id      String
-  spotify_uri     String
-  name            String
-  artists         Json
-  album_name      String
-  album_id        String
-  duration_ms     Int
-  explicit        String
-  popularity      Int
-  type            String
-  box_subsections BoxSubsectionTrack[]
-  boxes           BoxTrack[]
+  trackId        String               @id @default(uuid()) @db.Uuid
+  spotifyUrl     String
+  spotifyId      String
+  spotifyUri     String
+  name           String
+  artists        Json
+  albumName      String
+  albumId        String
+  durationMs     Int
+  explicit       String
+  popularity     Int
+  type           String
+  boxSubsections BoxSubsectionTrack[]
+  boxes          BoxTrack[]
 }
 
 enum AccountTiers {

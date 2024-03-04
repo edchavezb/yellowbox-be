@@ -11,7 +11,7 @@ routes.get("/", async (req, res) => {
     const { folderId } = req.query;
     const folder = await prisma.folder.findUnique({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
       include: {
         creator: {
@@ -34,7 +34,7 @@ routes.get("/multiple", async (req, res) => {
     const folderIds = extractArrayQueryParam(req, 'id');
     const sortedFolders = await prisma.folder.findMany({
       where: {
-        folder_id: {
+        folderId: {
           in: folderIds
         }
       }
@@ -56,10 +56,10 @@ routes.post("/", async (req, res) => {
 
     const updatedFolders = await prisma.folder.findMany({
       where: {
-        creator_id: userFolder.creator_id
+        creatorId: userFolder.creatorId
       },
       select: {
-        folder_id: true,
+        folderId: true,
         name: true
       }
     });
@@ -79,7 +79,7 @@ routes.put("/:folderId", async (req, res) => {
 
     const result = await prisma.folder.update({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
       data: updatedFolder,
       include: {
@@ -104,33 +104,33 @@ routes.delete("/:folderId", async (req, res) => {
     const { folderId } = req.params;
     const folder = await prisma.folder.findUnique({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
     });
 
     await prisma.folder.delete({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
     });
 
     const updatedFolders = await prisma.folder.findMany({
       where: {
-        creator_id: folder?.creator_id
+        creatorId: folder?.creatorId
       },
       select: {
-        folder_id: true,
+        folderId: true,
         name: true
       }
     });
 
     const updatedBoxes = await prisma.box.findMany({
       where: {
-        creator_id: folder?.creator_id,
-        folder_id: undefined
+        creatorId: folder?.creatorId,
+        folderId: undefined
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true
       }
     });
@@ -150,22 +150,22 @@ routes.post("/:folderId/boxes", async (req, res) => {
 
     await prisma.box.update({
       where: {
-        box_id: boxId as string
+        boxId: boxId as string
       },
       data: {
-        folder_id: folderId,
-        folder_position: folderPosition
+        folderId: folderId,
+        folderPosition: folderPosition
       }
     });
 
     const updatedFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
       include: {
         boxes: {
           select: {
-            box_id: true,
+            boxId: true,
             name: true
           }
         }
@@ -174,11 +174,11 @@ routes.post("/:folderId/boxes", async (req, res) => {
 
     const updatedBoxes = await prisma.box.findMany({
       where: {
-        creator_id: updatedFolder?.creator_id,
-        folder_id: undefined
+        creatorId: updatedFolder?.creatorId,
+        folderId: undefined
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true
       }
     });
@@ -198,8 +198,8 @@ routes.put("/:folderId/reorderBox/:boxId", async (req, res) => {
 
     // Get the target box
     const targetBox = await prisma.box.findUnique({
-      where: { box_id: boxId },
-      select: { folder_position: true }
+      where: { boxId: boxId },
+      select: { folderPosition: true }
     });
 
     if (!targetBox) {
@@ -208,15 +208,15 @@ routes.put("/:folderId/reorderBox/:boxId", async (req, res) => {
 
     // Update the position of the target box
     await prisma.box.update({
-      where: { box_id: boxId },
-      data: { folder_position: newPosition }
+      where: { boxId: boxId },
+      data: { folderPosition: newPosition }
     });
 
     // Update the positions of other boxes in the same folder
     await prisma.box.updateMany({
       where: {
-        folder_id: folderId,
-        box_id: { not: boxId }, // Exclude the target box
+        folderId: folderId,
+        boxId: { not: boxId }, // Exclude the target box
         position: { gte: newPosition } // Select boxes with positions greater than or equal to the target position
       },
       data: { position: { increment: 1 } } // Increment the position of selected boxes by 1
@@ -237,13 +237,13 @@ routes.put("/:folderId/reorderBox/:boxId", async (req, res) => {
 
 //     const updatedFolder = await prisma.folder.update({
 //       where: {
-//         folder_id: folderId as string
+//         folderId: folderId as string
 //       },
 //       data: {
 //         boxes: {
 //           update: {
 //             where: {
-//               box_id: boxId
+//               boxId: boxId
 //             },
 //             data: {
 //               box_name: name
@@ -267,22 +267,22 @@ routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
 
     await prisma.box.update({
       where: {
-        box_id: boxId as string
+        boxId: boxId as string
       },
       data: {
-        folder_id: null,
-        folder_position: null
+        folderId: null,
+        folderPosition: null
       }
     });
 
     const updatedFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: folderId as string
+        folderId: folderId as string
       },
       include: {
         boxes: {
           select: {
-            box_id: true,
+            boxId: true,
             name: true
           }
         }
@@ -291,11 +291,11 @@ routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
 
     const updatedBoxes = await prisma.box.findMany({
       where: {
-        creator_id: updatedFolder?.creator_id,
-        folder_id: undefined
+        creatorId: updatedFolder?.creatorId,
+        folderId: undefined
       },
       select: {
-        box_id: true,
+        boxId: true,
         name: true
       }
     });
@@ -315,22 +315,22 @@ routes.put("/:sourceFolderId/boxes/:boxId", async (req, res) => {
 
     await prisma.box.update({
       where: {
-        box_id: boxId as string
+        boxId: boxId as string
       },
       data: {
-        folder_id: targetFolderId,
-        folder_position: folderPosition
+        folderId: targetFolderId,
+        folderPosition: folderPosition
       }
     });
 
     const updatedSourceFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: sourceFolderId as string
+        folderId: sourceFolderId as string
       },
       include: {
         boxes: {
           select: {
-            box_id: true,
+            boxId: true,
             name: true
           }
         }
@@ -339,12 +339,12 @@ routes.put("/:sourceFolderId/boxes/:boxId", async (req, res) => {
 
     const updatedTargetFolder = await prisma.folder.findFirst({
       where: {
-        folder_id: targetFolderId as string
+        folderId: targetFolderId as string
       },
       include: {
         boxes: {
           select: {
-            box_id: true,
+            boxId: true,
             name: true
           }
         }

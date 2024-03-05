@@ -218,62 +218,6 @@ routes.put("/:boxId/sectionSettings", async (req, res) => {
   }
 });
 
-// Add a note to the notes in a box. Not needed as notes are added to items directly now.
-// routes.post("/:boxId/notes", async (req, res) => {
-//   try {
-//     const { boxId } = req.params;
-//     const updatedBox = await prisma.box.update({
-//       where: {
-//         id: parseInt(boxId)
-//       },
-//       data: {
-//         notes: {
-//           push: req.body
-//         }
-//       },
-//       select: {
-//         notes: true
-//       }
-//     });
-//     return res.status(201).json(updatedBox.notes);
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Sorry, something went wrong :/" });
-//   }
-// });
-
-// Edit a note in a box. Not needed as notes are added to items directly now.
-// routes.put("/:boxId/notes/:noteId", async (req, res) => {
-//   try {
-//     const { boxId, noteId } = req.params;
-//     const { noteText } = req.body;
-//     const updatedBox = await prisma.box.update({
-//       where: {
-//         id: parseInt(boxId)
-//       },
-//       data: {
-//         notes: {
-//           update: {
-//             where: {
-//               id: parseInt(noteId)
-//             },
-//             data: {
-//               noteText
-//             }
-//           }
-//         }
-//       },
-//       select: {
-//         notes: true
-//       }
-//     });
-//     return res.status(201).json(updatedBox.notes);
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Sorry, something went wrong :/" });
-//   }
-// });
-
 // Add a subsection to a box
 routes.post("/:boxId/subsections", async (req, res) => {
   try {
@@ -366,52 +310,6 @@ routes.put("/subsections/:subsectionId", async (req, res) => {
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
-
-// Reorder items in a subsection
-// routes.put('/:boxId/subsections/:subsectionId/reorder', async (req, res) => {
-//   try {
-//     const { boxId, subsectionId } = req.params;
-//     const { sourceIndex, destinationIndex } = req.body;
-
-//     const box = await prisma.box.findUnique({
-//       where: {
-//         id: parseInt(boxId)
-//       },
-//       include: {
-//         subSections: true
-//       }
-//     });
-
-//     if (!box) {
-//       return res.status(404).json({ message: 'Box not found.' });
-//     }
-
-//     const subsection = box.subSections.find(sub => sub.id === parseInt(subsectionId));
-//     if (!subsection) {
-//       throw new Error('Subsection not found.');
-//     }
-
-//     const targetItem = subsection.items.splice(sourceIndex, 1)[0];
-//     subsection.items.splice(destinationIndex, 0, targetItem);
-
-//     const updatedBox = await prisma.box.update({
-//       where: {
-//         id: parseInt(boxId)
-//       },
-//       data: {
-//         subSections: box.subSections
-//       },
-//       select: {
-//         subSections: true
-//       }
-//     });
-
-//     res.status(200).json({ message: 'Items in the subsection reordered successfully.', updatedSubsections: updatedBox.subSections });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: 'Something went wrong.' });
-//   }
-// });
 
 // Delete a subsection
 routes.delete("/:boxId/subsections/:subsectionId", async (req, res) => {

@@ -43,7 +43,7 @@ routes.post("/:boxId/artists", async (req, res) => {
 });
 
 // Reorder an artist in a box
-routes.put("/:boxId/reorderArtist/:artistId", async (req, res) => {
+routes.put("/:boxId/artists/:artistId/reorder", async (req, res) => {
   try {
     const { boxId, artistId } = req.params;
     const newPosition = parseInt(req.body.position);
@@ -144,6 +144,45 @@ routes.post(":subsectionId/artists/:artistId", async (req, res) => {
     });
 
     return res.status(201).json({ message: "Artist added to subsection successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Reorder an artist in a subsection
+routes.put("/:subsectionId/artists/:artistId/reorder", async (req, res) => {
+  try {
+    const { subsectionId, artistId } = req.params;
+    const newPosition = parseInt(req.body.position);
+
+    // Get the target artist
+    const targetArtist = await prisma.boxSubsectionArtist.findUnique({
+      where: { artistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), artistId: artistId } },
+      select: { position: true }
+    });
+
+    if (!targetArtist) {
+      return res.status(404).json({ error: "Artist not found" });
+    }
+
+    // Update the position of the target artist
+    await prisma.boxSubsectionArtist.update({
+      where: { artistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), artistId: artistId } },
+      data: { position: newPosition }
+    });
+
+    // Update the positions of other artists in the same subsection
+    await prisma.boxSubsectionArtist.updateMany({
+      where: {
+        boxSubsectionId: parseInt(subsectionId),
+        artistId: { not: artistId }, // Exclude the target artist
+        position: { gte: newPosition } // Select artists with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected artists by 1
+    });
+
+    return res.status(200).json({ message: "Artist reordered successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

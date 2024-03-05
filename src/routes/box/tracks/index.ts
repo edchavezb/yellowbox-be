@@ -46,7 +46,7 @@ routes.post("/:boxId/tracks", async (req, res) => {
 });
 
 // Reorder a track in a box
-routes.put("/:boxId/reorderTrack/:trackId", async (req, res) => {
+routes.put("/:boxId/tracks/:trackId/reorder", async (req, res) => {
   try {
     const { boxId, trackId } = req.params;
     const newPosition = parseInt(req.body.position);
@@ -153,6 +153,45 @@ routes.post(":subsectionId/tracks/:trackId", async (req, res) => {
     });
 
     return res.status(201).json({ message: "Track added to subsection successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Reorder a track in a subsection
+routes.put("/:subsectionId/tracks/:trackId/reorder", async (req, res) => {
+  try {
+    const { subsectionId, trackId } = req.params;
+    const newPosition = parseInt(req.body.position);
+
+    // Get the target track
+    const targetTrack = await prisma.boxSubsectionTrack.findUnique({
+      where: { trackId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), trackId: trackId } },
+      select: { position: true }
+    });
+
+    if (!targetTrack) {
+      return res.status(404).json({ error: "Track not found" });
+    }
+
+    // Update the position of the target track
+    await prisma.boxSubsectionTrack.update({
+      where: { trackId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), trackId: trackId } },
+      data: { position: newPosition }
+    });
+
+    // Update the positions of other tracks in the same box
+    await prisma.boxSubsectionTrack.updateMany({
+      where: {
+        boxSubsectionId: parseInt(subsectionId),
+        trackId: { not: trackId }, // Exclude the target track
+        position: { gte: newPosition } // Select tracks with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected tracks by 1
+    });
+
+    return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

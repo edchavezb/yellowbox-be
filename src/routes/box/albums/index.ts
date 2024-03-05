@@ -45,7 +45,7 @@ routes.post("/:boxId/albums", async (req, res) => {
 });
 
 // Reorder an album in a box
-routes.put("/:boxId/reorderAlbum/:albumId", async (req, res) => {
+routes.put("/:boxId/albums/:albumId/reorder", async (req, res) => {
   try {
     const { boxId, albumId } = req.params;
     const newPosition = parseInt(req.body.position);
@@ -146,6 +146,45 @@ routes.post(":subsectionId/albums/:albumId", async (req, res) => {
     });
 
     return res.status(201).json({ message: "Album added to subsection successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Reorder an album in a subsection
+routes.put("/:subsectionId/albums/:albumId/reorder", async (req, res) => {
+  try {
+    const { subsectionId, albumId } = req.params;
+    const newPosition = parseInt(req.body.position);
+
+    // Get the target album
+    const targetAlbum = await prisma.boxSubsectionAlbum.findUnique({
+      where: { albumId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), albumId: albumId } },
+      select: { position: true }
+    });
+
+    if (!targetAlbum) {
+      return res.status(404).json({ error: "Album not found" });
+    }
+
+    // Update the position of the target album
+    await prisma.boxSubsectionAlbum.update({
+      where: { albumId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), albumId: albumId } },
+      data: { position: newPosition }
+    });
+
+    // Update the positions of other albums in the same subsection
+    await prisma.boxSubsectionAlbum.updateMany({
+      where: {
+        boxSubsectionId: parseInt(subsectionId),
+        albumId: { not: albumId }, // Exclude the target album
+        position: { gte: newPosition } // Select albums with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected albums by 1
+    });
+
+    return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

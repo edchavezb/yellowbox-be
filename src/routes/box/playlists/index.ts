@@ -45,7 +45,7 @@ routes.post("/:boxId/playlists", async (req, res) => {
 });
 
 // Reorder a playlist in a box
-routes.put("/:boxId/reorderPlaylist/:playlistId", async (req, res) => {
+routes.put("/:boxId/playlists/:playlistId/reorder", async (req, res) => {
   try {
     const { boxId, playlistId } = req.params;
     const newPosition = parseInt(req.body.position);
@@ -146,6 +146,45 @@ routes.post(":subsectionId/playlists/:playlistId", async (req, res) => {
     });
 
     return res.status(201).json({ message: "Track added to subsection successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Reorder a playlist in a subsection
+routes.put("/:subsectionId/playlists/:playlistId/reorder", async (req, res) => {
+  try {
+    const { subsectionId, playlistId } = req.params;
+    const newPosition = parseInt(req.body.position);
+
+    // Get the target playlist
+    const targetPlaylist = await prisma.boxSubsectionPlaylist.findUnique({
+      where: { playlistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), playlistId: playlistId } },
+      select: { position: true }
+    });
+
+    if (!targetPlaylist) {
+      return res.status(404).json({ error: "Playlist not found" });
+    }
+
+    // Update the position of the target playlist
+    await prisma.boxSubsectionPlaylist.update({
+      where: { playlistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), playlistId: playlistId } },
+      data: { position: newPosition }
+    });
+
+    // Update the positions of other playlists in the same subsection
+    await prisma.boxSubsectionPlaylist.updateMany({
+      where: {
+        boxSubsectionId: parseInt(subsectionId),
+        playlistId: { not: playlistId }, // Exclude the target playlist
+        position: { gte: newPosition } // Select playlists with positions greater than or equal to the target position
+      },
+      data: { position: { increment: 1 } } // Increment the position of selected playlists by 1
+    });
+
+    return res.status(200).json({ message: "Playlist reordered successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

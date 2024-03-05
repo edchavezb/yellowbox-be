@@ -45,12 +45,13 @@ model UserBilling {
 }
 
 model Folder {
-  folderId    String  @id @default(uuid()) @db.Uuid
-  creatorId   String  @db.Uuid
+  folderId    String   @id @default(uuid()) @db.Uuid
+  creatorId   String   @db.Uuid
   name        String
   description String
   isPublic    Boolean
-  creator     User    @relation(fields: [creatorId], references: [userId])
+  createdAt   DateTime @default(now())
+  creator     User     @relation(fields: [creatorId], references: [userId])
   boxes       Box[]
 }
 
@@ -76,34 +77,37 @@ model Box {
 }
 
 model BoxArtist {
-  artistId String @db.Uuid
-  boxId    String @db.Uuid
-  position Int
-  note     String
-  artist   Artist @relation(fields: [artistId], references: [artistId])
-  box      Box    @relation(fields: [boxId], references: [boxId])
+  artistId  String   @db.Uuid
+  boxId     String   @db.Uuid
+  position  Int
+  note      String
+  createdAt DateTime @default(now())
+  artist    Artist   @relation(fields: [artistId], references: [artistId])
+  box       Box      @relation(fields: [boxId], references: [boxId])
 
   @@id([artistId, boxId])
 }
 
 model BoxTrack {
-  trackId  String @db.Uuid
-  boxId    String @db.Uuid
-  position Int
-  note     String
-  track    Track  @relation(fields: [trackId], references: [trackId])
-  box      Box    @relation(fields: [boxId], references: [boxId])
+  trackId   String   @db.Uuid
+  boxId     String   @db.Uuid
+  position  Int
+  note      String
+  createdAt DateTime @default(now())
+  track     Track    @relation(fields: [trackId], references: [trackId])
+  box       Box      @relation(fields: [boxId], references: [boxId])
 
   @@id([trackId, boxId])
 }
 
 model BoxAlbum {
-  albumId  String @db.Uuid
-  boxId    String @db.Uuid
-  position Int
-  note     String
-  album    Album  @relation(fields: [albumId], references: [albumId])
-  box      Box    @relation(fields: [boxId], references: [boxId])
+  albumId   String   @db.Uuid
+  boxId     String   @db.Uuid
+  position  Int
+  note      String
+  createdAt DateTime @default(now())
+  album     Album    @relation(fields: [albumId], references: [albumId])
+  box       Box      @relation(fields: [boxId], references: [boxId])
 
   @@id([albumId, boxId])
 }
@@ -113,6 +117,7 @@ model BoxPlaylist {
   boxId      String   @db.Uuid
   position   Int
   note       String
+  createdAt  DateTime @default(now())
   playlist   Playlist @relation(fields: [playlistId], references: [playlistId])
   box        Box      @relation(fields: [boxId], references: [boxId])
 
@@ -151,6 +156,7 @@ model BoxSubsectionArtist {
   boxSubsectionId Int
   position        Int
   note            String
+  createdAt       DateTime      @default(now())
   artist          Artist        @relation(fields: [artistId], references: [artistId])
   boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
@@ -162,6 +168,7 @@ model BoxSubsectionAlbum {
   boxSubsectionId Int
   position        Int
   note            String
+  createdAt       DateTime      @default(now())
   album           Album         @relation(fields: [albumId], references: [albumId])
   boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
@@ -173,6 +180,7 @@ model BoxSubsectionTrack {
   boxSubsectionId Int
   position        Int
   note            String
+  createdAt       DateTime      @default(now())
   track           Track         @relation(fields: [trackId], references: [trackId])
   boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
@@ -184,6 +192,7 @@ model BoxSubsectionPlaylist {
   boxSubsectionId Int
   position        Int
   note            String
+  createdAt       DateTime      @default(now())
   playlist        Playlist      @relation(fields: [playlistId], references: [playlistId])
   boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
 
@@ -192,22 +201,24 @@ model BoxSubsectionPlaylist {
 
 model Artist {
   artistId       String                @id @default(uuid()) @db.Uuid
-  spotifyUrl     String
-  spotifyId      String
-  spotifyUri     String
+  spotifyUrl     String                @unique
+  spotifyId      String                @unique
+  spotifyUri     String                @unique
   name           String
   popularity     Int
   genres         String[]
   type           String
+  images         Json
   boxSubsections BoxSubsectionArtist[]
   boxes          BoxArtist[]
 }
 
 model Album {
   albumId        String               @id @default(uuid()) @db.Uuid
-  spotifyUrl     String
-  spotifyId      String
-  spotifyUri     String
+  spotifyUrl     String               @unique
+  spotifyId      String               @unique
+  spotifyUri     String               @unique
+  name           String
   images         Json
   albumType      String
   artists        Json
@@ -220,11 +231,11 @@ model Album {
 
 model Playlist {
   playlistId     String                  @id @default(uuid()) @db.Uuid
+  spotifyUrl     String                  @unique
+  spotifyId      String                  @unique
+  spotifyUri     String                  @unique
   name           String
   description    String
-  spotifyUrl     String
-  spotifyId      String
-  spotifyUri     String
   ownerName      String
   ownerUri       String
   images         Json
@@ -236,13 +247,14 @@ model Playlist {
 
 model Track {
   trackId        String               @id @default(uuid()) @db.Uuid
-  spotifyUrl     String
-  spotifyId      String
-  spotifyUri     String
+  spotifyUrl     String               @unique
+  spotifyId      String               @unique
+  spotifyUri     String               @unique
   name           String
   artists        Json
   albumName      String
   albumId        String
+  albumImages    Json
   durationMs     Int
   explicit       String
   popularity     Int

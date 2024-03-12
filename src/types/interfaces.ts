@@ -10,6 +10,14 @@ export interface UserCreateDTO {
   }
 }
 
+export interface BoxCreateDTO {
+  creatorId: string
+  position: number
+  name: string
+  description: string
+  isPublic: boolean
+}
+
 export interface User {
   auth: UserAuth
   userData: UserData

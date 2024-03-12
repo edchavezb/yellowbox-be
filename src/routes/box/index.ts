@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { SectionSorting } from "../../types/interfaces";
+import { BoxCreateDTO, SectionSorting } from "../../types/interfaces";
 import { extractArrayQueryParam } from "../../helpers";
 import { PrismaClient } from "@prisma/client";
 
@@ -56,9 +56,23 @@ routes.get("/multiple", async (req, res) => {
 // Create a box
 routes.post("/", async (req, res) => {
   try {
-    const userBox = req.body;
+    const userBox: BoxCreateDTO = req.body;
+    const { creatorId, ...boxData } = userBox
     const newBox = await prisma.box.create({
-      data: userBox
+      data: {
+        ...boxData,
+        creator: { connect: { userId: creatorId } },
+        sectionSettings: {
+          createMany: {
+            data: [
+              { type: "artists" },
+              { type: "albums" },
+              { type: "tracks" },
+              { type: "playlists" }
+            ]
+          }
+        }
+      }
     });
     return res.status(201).json({ boxId: newBox.boxId, boxName: newBox.name });
   } catch (error) {
@@ -67,17 +81,21 @@ routes.post("/", async (req, res) => {
   }
 });
 
-// Update a box
-routes.put("/:boxId", async (req, res) => {
+// Update a box's details
+routes.put("/:boxId/box-details", async (req, res) => {
   try {
     const { boxId } = req.params;
-    const replacementBox = req.body;
+    const { name, description, isPublic } = req.body;
 
     const updatedBox = await prisma.box.update({
       where: {
         boxId: boxId
       },
-      data: replacementBox
+      data: {
+        name,
+        description,
+        isPublic
+      }
     });
 
     return res.status(201).json(updatedBox);
@@ -91,7 +109,9 @@ routes.put("/:boxId", async (req, res) => {
 routes.put("/:boxId/delete", async (req, res) => {
   try {
     const { boxId } = req.params;
-    const { containingFolder, folderId } = req.body;
+    const { folderId } = req.body;
+    let updatedFolder: {} | null = {};
+
     const updatedBox = await prisma.box.update({
       where: {
         boxId: boxId
@@ -101,8 +121,9 @@ routes.put("/:boxId/delete", async (req, res) => {
         folderId: null
       }
     });
-    if (containingFolder) {
-      const updatedFolder = await prisma.folder.findFirst({
+
+    if (folderId) {
+      updatedFolder = await prisma.folder.findFirst({
         where: {
           folderId: folderId
         },
@@ -110,37 +131,38 @@ routes.put("/:boxId/delete", async (req, res) => {
           boxes: {
             select: {
               boxId: true,
-              name: true 
-            }
-          }
-        }
-      });
-      return res.status(201).json(updatedFolder);
-    } else {
-      const updatedUser = await prisma.user.findFirst({
-        where: {
-          userId: updatedBox.creatorId
-        },
-        include: {
-          boxes: {
-            where: {
-              folderId: null
-            },
-            select : {
-              boxId: true,
               name: true
             }
           }
         }
       });
-      return res.status(201).json(updatedUser);
     }
+
+    const updatedUser = await prisma.user.findFirst({
+      where: {
+        userId: updatedBox?.creatorId!
+      },
+      include: {
+        boxes: {
+          where: {
+            folderId: null,
+            isDeleted: false
+          },
+          select: {
+            boxId: true,
+            name: true
+          }
+        }
+      }
+    })
+    return res.status(201).json({ updatedUser, updatedFolder: updatedFolder || {} });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
 
+// UNTESTED
 // Clone a box
 routes.post("/:boxId/clone", async (req, res) => {
   try {
@@ -174,39 +196,19 @@ routes.post("/:boxId/clone", async (req, res) => {
   }
 });
 
-// Update a box's information
-routes.put("/:boxId/boxInfo", async (req, res) => {
-  try {
-    const { boxId } = req.params;
-    const { name, isPublic, description } = req.body;
-
-    const updatedBox = await prisma.box.update({
-      where: {
-        boxId: boxId
-      },
-      data: {
-        name,
-        isPublic: isPublic,
-        description
-      }
-    });
-
-    return res.status(201).json(updatedBox);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
+// UNTESTED
 // Update a box's section sorting settings
-routes.put("/:boxId/sectionSettings", async (req, res) => {
+routes.put("/:boxId/section-settings/:type", async (req, res) => {
   try {
-    const { boxId } = req.params;
+    const { boxId, type } = req.params;
     const updatedSorting = req.body;
 
-    const updatedBoxSectionSettings = await prisma.boxSectionSettings.update({
+    const updatedBoxSectionSettings = await prisma.boxSectionSettings.updateMany({
       where: {
-        boxId: boxId
+        AND: {
+          boxId: boxId as string,
+          type: type
+        }
       },
       data: updatedSorting
     });
@@ -218,6 +220,7 @@ routes.put("/:boxId/sectionSettings", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Add a subsection to a box
 routes.post("/:boxId/subsections", async (req, res) => {
   try {
@@ -226,7 +229,7 @@ routes.post("/:boxId/subsections", async (req, res) => {
     await prisma.boxSubsection.create({
       data: {
         boxId: boxId,
-        itemType: itemType,     
+        itemType: itemType,
         subsectionName: name,
         position: position
       }
@@ -245,6 +248,7 @@ routes.post("/:boxId/subsections", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Reorder a subsection within a box
 routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
   try {
@@ -284,6 +288,7 @@ routes.put("/:boxId/reorderSubsection/:subsectionId", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Edit a subsection's name
 routes.put("/subsections/:subsectionId", async (req, res) => {
   try {
@@ -311,6 +316,7 @@ routes.put("/subsections/:subsectionId", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Delete a subsection
 routes.delete("/:boxId/subsections/:subsectionId", async (req, res) => {
   try {

@@ -12,9 +12,9 @@ model User {
   userId                String                     @id @default(uuid()) @db.Uuid
   firebaseId            String                     @unique
   username              String                     @unique
-  firstName             String
-  lastName              String
-  imageUrl              String
+  firstName             String?
+  lastName              String?
+  imageUrl              String?
   linkedServices        Json
   accountManagementData UserAccountManagementData?
   billing               UserBilling?
@@ -30,7 +30,7 @@ model UserAccountManagementData {
   emailVerified       Boolean      @default(false)
   email               String       @unique
   showTutorial        Boolean      @default(true)
-  user                User         @relation(fields: [userId], references: [userId])
+  user                User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
 model UserBilling {
@@ -41,7 +41,7 @@ model UserBilling {
   stripeSubscriptionStatus String?
   stripePriceId            String?
   stripeProductId          String?
-  user                     User    @relation(fields: [userId], references: [userId])
+  user                     User    @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
 model Folder {
@@ -51,13 +51,13 @@ model Folder {
   description String
   isPublic    Boolean
   createdAt   DateTime @default(now())
-  creator     User     @relation(fields: [creatorId], references: [userId])
+  creator     User     @relation(fields: [creatorId], references: [userId], onDelete: Cascade)
   boxes       Box[]
 }
 
 model Box {
   boxId           String               @id @default(uuid()) @db.Uuid
-  creatorId       String               @db.Uuid
+  creatorId       String?              @db.Uuid
   folderId        String?              @db.Uuid
   position        Int
   folderPosition  Int?
@@ -66,8 +66,8 @@ model Box {
   isPublic        Boolean              @default(true)
   isDeleted       Boolean              @default(false)
   createdAt       DateTime             @default(now())
-  creator         User                 @relation(fields: [creatorId], references: [userId])
-  folder          Folder?              @relation(fields: [folderId], references: [folderId])
+  creator         User?                @relation(fields: [creatorId], references: [userId], onDelete: SetNull)
+  folder          Folder?              @relation(fields: [folderId], references: [folderId], onDelete: SetNull)
   artists         BoxArtist[]
   tracks          BoxTrack[]
   albums          BoxAlbum[]
@@ -83,7 +83,7 @@ model BoxArtist {
   note      String
   createdAt DateTime @default(now())
   artist    Artist   @relation(fields: [artistId], references: [artistId])
-  box       Box      @relation(fields: [boxId], references: [boxId])
+  box       Box      @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
 
   @@id([artistId, boxId])
 }
@@ -95,7 +95,7 @@ model BoxTrack {
   note      String
   createdAt DateTime @default(now())
   track     Track    @relation(fields: [trackId], references: [trackId])
-  box       Box      @relation(fields: [boxId], references: [boxId])
+  box       Box      @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
 
   @@id([trackId, boxId])
 }
@@ -107,7 +107,7 @@ model BoxAlbum {
   note      String
   createdAt DateTime @default(now())
   album     Album    @relation(fields: [albumId], references: [albumId])
-  box       Box      @relation(fields: [boxId], references: [boxId])
+  box       Box      @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
 
   @@id([albumId, boxId])
 }
@@ -119,23 +119,23 @@ model BoxPlaylist {
   note       String
   createdAt  DateTime @default(now())
   playlist   Playlist @relation(fields: [playlistId], references: [playlistId])
-  box        Box      @relation(fields: [boxId], references: [boxId])
+  box        Box      @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
 
   @@id([playlistId, boxId])
 }
 
 model BoxSectionSettings {
-  sectionSettingsId  Int     @id @default(autoincrement())
-  boxId              String  @unique @db.Uuid
+  sectionSettingsId  Int          @id @default(autoincrement())
+  boxId              String       @db.Uuid
   type               String
-  primarySorting     String
-  secondarySorting   String
-  view               String
-  sortingOrder       String
-  displayGrouping    Boolean
-  displaySubsections Boolean
-  isVisible          Boolean
-  box                Box?    @relation(fields: [boxId], references: [boxId])
+  primarySorting     String       @default("custom")
+  secondarySorting   String       @default("none")
+  view               String       @default("grid")
+  sortingOrder       SortingOrder @default(ASCENDING)
+  displayGrouping    Boolean      @default(false)
+  displaySubsections Boolean      @default(false)
+  isVisible          Boolean      @default(true)
+  box                Box          @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
 }
 
 model BoxSubsection {
@@ -144,7 +144,7 @@ model BoxSubsection {
   itemType       String
   subsectionName String
   position       Int
-  box            Box                     @relation(fields: [boxId], references: [boxId])
+  box            Box                     @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
   artists        BoxSubsectionArtist[]
   albums         BoxSubsectionAlbum[]
   tracks         BoxSubsectionTrack[]
@@ -158,7 +158,7 @@ model BoxSubsectionArtist {
   note            String
   createdAt       DateTime      @default(now())
   artist          Artist        @relation(fields: [artistId], references: [artistId])
-  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId], onDelete: Cascade)
 
   @@id([artistId, boxSubsectionId])
 }
@@ -170,7 +170,7 @@ model BoxSubsectionAlbum {
   note            String
   createdAt       DateTime      @default(now())
   album           Album         @relation(fields: [albumId], references: [albumId])
-  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId], onDelete: Cascade)
 
   @@id([albumId, boxSubsectionId])
 }
@@ -182,7 +182,7 @@ model BoxSubsectionTrack {
   note            String
   createdAt       DateTime      @default(now())
   track           Track         @relation(fields: [trackId], references: [trackId])
-  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId], onDelete: Cascade)
 
   @@id([trackId, boxSubsectionId])
 }
@@ -194,7 +194,7 @@ model BoxSubsectionPlaylist {
   note            String
   createdAt       DateTime      @default(now())
   playlist        Playlist      @relation(fields: [playlistId], references: [playlistId])
-  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId])
+  boxSubsection   BoxSubsection @relation(fields: [boxSubsectionId], references: [subsectionId], onDelete: Cascade)
 
   @@id([playlistId, boxSubsectionId])
 }
@@ -266,4 +266,9 @@ model Track {
 enum AccountTiers {
   FREE
   PRO
+}
+
+enum SortingOrder {
+  ASCENDING
+  DESCENDING
 }

@@ -12,7 +12,7 @@ routes.get("/me", authenticate, async (req, res) => {
 });
 
 // Check if username exists
-routes.get("/check/:username", async (req, res) => {
+routes.get("/check-username/:username", async (req, res) => {
   try {
     const { username } = req.params;
     const usernameCount = await prisma.user.count({
@@ -64,17 +64,58 @@ routes.post("/", async (req, res) => {
   }
 });
 
-// Update a user
-routes.put("/:userId", async (req, res) => {
+// Delete a user
+routes.delete("/", authenticate, async (req, res) => {
+  try {
+    await prisma.user.delete({
+      where: {
+        userId: req.user.userId
+      }
+    });
+
+    return res.status(201).json({message: "User deleted successfully."});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a user's name information
+routes.put("/:userId/name", async (req, res) => {
   try {
     const { userId } = req.params;
-    const userData = req.body;
+    const {firstName, lastName} = req.body;
 
     const updatedUser = await prisma.user.update({
       where: {
         userId: userId
       },
-      data: userData
+      data: {
+        firstName: firstName,
+        lastName: lastName
+      }
+    });
+    return res.status(201).json(updatedUser);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// UNTESTED
+// Set a user's image URL
+routes.put("/:userId/image", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { imageUrl } = req.body;
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        userId: userId
+      },
+      data: {
+        imageUrl: imageUrl
+      }
     });
     return res.status(201).json(updatedUser);
   } catch (error) {
@@ -84,7 +125,7 @@ routes.put("/:userId", async (req, res) => {
 });
 
 // Set a user's email address as verified
-routes.put("/:userId/verifyEmail", async (req, res) => {
+routes.put("/:userId/verify-email", async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -103,8 +144,9 @@ routes.put("/:userId/verifyEmail", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Link a user to a Spotify account
-routes.post("/:userId/spotify", async (req, res) => {
+routes.post("/:userId/link-account/spotify", async (req, res) => {
   try {
     const { userId } = req.params;
     const { spotifyData } = req.body;
@@ -128,8 +170,9 @@ routes.post("/:userId/spotify", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Link a user to a LastFM account
-routes.post("/:userId/lastfm", async (req, res) => {
+routes.post("/:userId/link-account/lastfm", async (req, res) => {
   try {
     const { userId } = req.params;
     const { lastfmData } = req.body;
@@ -176,6 +219,7 @@ routes.get("/:userId/boxes", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Get a user's created folders
 routes.get("/:userId/folders", async (req, res) => {
   try {
@@ -192,8 +236,9 @@ routes.get("/:userId/folders", async (req, res) => {
   }
 });
 
+// UNTESTED
 // Reorder user boxes
-routes.put("/:userId/reorderBoxes", async (req, res) => {
+routes.put("/:userId/reorder-boxes", async (req, res) => {
   try {
     const { userId } = req.params;
     const { boxId, newPosition } = req.body;

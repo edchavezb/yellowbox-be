@@ -9,6 +9,7 @@ import boxArtists from "./routes/box/artists";
 import boxAlbums from "./routes/box/albums";
 import boxTracks from "./routes/box/tracks";
 import boxPlaylists from "./routes/box/playlists";
+import itemRoutes from "./routes/item";
 
 const prisma = new PrismaClient();
 
@@ -33,6 +34,7 @@ app.use("/api/boxes", boxArtists);
 app.use("/api/boxes", boxAlbums);
 app.use("/api/boxes", boxTracks);
 app.use("/api/boxes", boxPlaylists);
+app.use("/api/items", itemRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/spotify", spotifyRoutes);

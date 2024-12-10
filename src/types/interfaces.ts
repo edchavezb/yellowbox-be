@@ -18,6 +18,18 @@ export interface BoxCreateDTO {
   isPublic: boolean
 }
 
+export interface FolderCreateDTO {
+  creator: string
+  name: string
+  description: string
+  isPublic: boolean
+}
+
+export interface SpotifyAccountDTO {
+  refreshToken: string
+  spotifyId: string
+}
+
 export interface User {
   auth: UserAuth
   userData: UserData

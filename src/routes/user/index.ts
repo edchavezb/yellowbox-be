@@ -1,61 +1,51 @@
 import { Router } from "express";
 import authenticate from "../../middleware/autenticate"
-import { PrismaClient } from "@prisma/client";
-import { UserCreateDTO } from "../../types/interfaces";
+import { Prisma } from "@prisma/client";
+import { SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
+import userService from "../../services/user/userService";
+import boxService from "../../services/box/boxService";
+import folderService from "../../services/folder/folderService";
 
-const prisma = new PrismaClient();
 const routes = Router();
 
+// TESTED
 // Get the authenticated user's data
 routes.get("/me", authenticate, async (req, res) => {
   res.status(200).json({ appUser: req.user });
 });
 
+// TESTED
 // Check if username exists
 routes.get("/check-username/:username", async (req, res) => {
   try {
     const { username } = req.params;
-    const usernameCount = await prisma.user.count({
-      where: {
-        username: username
-      }
-    });
-    return res.status(201).json({ usernameExists: !!usernameCount });
+    const usernameExists = await userService.getUsernameExists(username);
+    return res.status(201).json({ usernameExists });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
 
+// TESTED
+// Check if an email exists
+routes.get("/check-email/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const emailExists = await userService.getEmailExists(email);
+    return res.status(201).json({ emailExists });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// TESTED
 // Create a new user
 routes.post("/", async (req, res) => {
   try {
     const userData: UserCreateDTO = req.body;
-    const newUser = await prisma.user.create({
-      data: {
-        firebaseId: userData.firebaseId,
-        username: userData.username,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        imageUrl: userData.image,
-        linkedServices: userData.services
-      }
-    });
-
-    // Use the userId to create user billing and user account management data
-    await prisma.$transaction([
-      prisma.userBilling.create({
-        data: {
-          userId: newUser.userId
-        }
-      }),
-      prisma.userAccountManagementData.create({
-        data: {
-          userId: newUser.userId,
-          email: userData.email
-        }
-      })
-    ]);
+    const newUser = await userService.createUser(userData);
 
     return res.status(201).json(newUser);
   } catch (error) {
@@ -64,14 +54,12 @@ routes.post("/", async (req, res) => {
   }
 });
 
-// Delete a user
+// TESTED WITHOUT AUTH
+// TODO: Test with auth
 routes.delete("/", authenticate, async (req, res) => {
   try {
-    await prisma.user.delete({
-      where: {
-        userId: req.user.userId
-      }
-    });
+    const userId = req.user.userId
+    await userService.deleteUser(userId);
 
     return res.status(201).json({message: "User deleted successfully."});
   } catch (error) {
@@ -80,21 +68,14 @@ routes.delete("/", authenticate, async (req, res) => {
   }
 });
 
-// Update a user's name information
-routes.put("/:userId/name", async (req, res) => {
+// TESTED
+// Update a user's basic profile information
+routes.put("/:userId/profile-information", async (req, res) => {
   try {
     const { userId } = req.params;
-    const {firstName, lastName} = req.body;
+    const updatedInfo = req.body;
+    const updatedUser = await userService.updateUserProfileInfo(userId, updatedInfo);
 
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId: userId
-      },
-      data: {
-        firstName: firstName,
-        lastName: lastName
-      }
-    });
     return res.status(201).json(updatedUser);
   } catch (error) {
     console.error(error);
@@ -102,21 +83,15 @@ routes.put("/:userId/name", async (req, res) => {
   }
 });
 
-// UNTESTED
+// TESTED
+// TODO: Add check to ensure url is in correct format
 // Set a user's image URL
-routes.put("/:userId/image", async (req, res) => {
+routes.put("/:userId/profile-picture", async (req, res) => {
   try {
     const { userId } = req.params;
     const { imageUrl } = req.body;
+    const updatedUser = await userService.updateUserImage(userId, imageUrl);
 
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId: userId
-      },
-      data: {
-        imageUrl: imageUrl
-      }
-    });
     return res.status(201).json(updatedUser);
   } catch (error) {
     console.error(error);
@@ -124,94 +99,75 @@ routes.put("/:userId/image", async (req, res) => {
   }
 });
 
+// TESTED
 // Set a user's email address as verified
 routes.put("/:userId/verify-email", async (req, res) => {
   try {
     const { userId } = req.params;
+    const updatedUserAccountData = await userService.verifyUserEmail(userId);
 
-    const updatedUser = await prisma.userAccountManagementData.update({
-      where: {
-        userId: userId
-      },
-      data: {
-        emailVerified: true
-      }
-    });
-    return res.status(201).json(updatedUser);
+    return res.status(201).json({userAccountData: updatedUserAccountData});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
 
-// UNTESTED
+// TESTED
+// Toggle a user's tutorial preference on or off
+routes.put("/:userId/toggle-tutorial", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updatedUserAccountData = await userService.toggleTutorialPreference(userId);
+
+    return res.status(201).json({userAccountData: updatedUserAccountData});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// TESTED
 // Link a user to a Spotify account
 routes.post("/:userId/link-account/spotify", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { spotifyData } = req.body;
+    const { spotifyData }: { spotifyData: SpotifyAccountDTO } = req.body;
+    const updatedUserSpotifyAccount = await userService.linkSpotifyAccount(userId, spotifyData);
 
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId: userId
-      },
-      data: {
-        linkedServices: {
-          set: {
-            spotify: spotifyData
-          }
-        }
-      }
-    });
-    return res.status(201).json(updatedUser);
+    return res.status(201).json(updatedUserSpotifyAccount);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
 
-// UNTESTED
-// Link a user to a LastFM account
-routes.post("/:userId/link-account/lastfm", async (req, res) => {
+// TESTED
+// Unlink a user from a Spotify account
+routes.delete("/:userId/unlink-account/spotify", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { lastfmData } = req.body;
+    await userService.unlinkSpotifyAccount(userId);
 
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId: userId
-      },
-      data: {
-        linkedServices: {
-          set: {
-            lastfm: lastfmData
-          }
-        }
-      }
-    });
-    return res.status(201).json(updatedUser);
+    return res.status(200).json({ message: "Spotify account unlinked successfully." });
   } catch (error) {
     console.error(error);
+    
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') { // Record to delete does not exist
+      return res.status(404).json({ error: "No linked Spotify account found for this user." });
+    }
+    
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
 
-// Get a user's created boxes
+// TESTED
+// Get a user's boxes
 routes.get("/:userId/boxes", async (req, res) => {
   try {
     const { userId } = req.params;
-    const boxes = await prisma.box.findMany({
-      where: {
-        AND: [
-          { creatorId: userId },
-          { NOT: { isDeleted: true } }
-        ]
-      },
-      select: {
-        boxId: true,
-        name: true
-      }
-    });
+    const boxes = await boxService.getUserBoxes(userId);
+  
     return res.json(boxes);
   } catch (error) {
     console.error(error);
@@ -219,16 +175,13 @@ routes.get("/:userId/boxes", async (req, res) => {
   }
 });
 
-// UNTESTED
-// Get a user's created folders
+// TESTED
+// Get a user's folders
 routes.get("/:userId/folders", async (req, res) => {
   try {
     const { userId } = req.params;
-    const folders = await prisma.folder.findMany({
-      where: {
-        creatorId: userId
-      }
-    });
+    const folders = await folderService.getUserFolders(userId);
+
     return res.json(folders);
   } catch (error) {
     console.error(error);
@@ -236,51 +189,25 @@ routes.get("/:userId/folders", async (req, res) => {
   }
 });
 
-// UNTESTED
+// TESTED
 // Reorder user boxes
-routes.put("/:userId/reorder-boxes", async (req, res) => {
+routes.put("/:userId/reorder-box/:boxId", async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { boxId, newPosition } = req.body;
+    const { userId, boxId } = req.params;
+    const { newPosition } = req.body;
 
     // Get the box to be reordered
-    const boxToReorder = await prisma.box.findUnique({
-      where: {
-        boxId: boxId
-      }
-    });
+    const boxExists = await boxService.getBoxExists(boxId);
 
-    if (!boxToReorder) {
+    if (!boxExists) {
       return res.status(404).json({ message: "Box not found." });
     }
 
     // Update the position of the box to be reordered
-    const updatedBox = await prisma.box.update({
-      where: {
-        boxId: boxId
-      },
-      data: {
-        position: newPosition
-      }
-    });
+    const updatedBox = await boxService.updateDashboardBoxPosition(boxId, newPosition);
 
     // Increment the position of other boxes with the same creatorId
-    await prisma.box.updateMany({
-      where: {
-        creatorId: userId,
-        position: {
-          gte: newPosition
-        },
-        boxId: {
-          not: boxId
-        }
-      },
-      data: {
-        position: {
-          increment: 1
-        }
-      }
-    });
+    await boxService.incrementSubsequentDashboardBoxPositions(userId, boxId, newPosition);
 
     // Return the updated box
     return res.status(200).json(updatedBox);

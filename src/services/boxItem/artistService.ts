@@ -4,45 +4,45 @@ const prisma = new PrismaClient();
 
 const artistService = {
   async createArtist(artistData: any) {
-    const { spotifyId, name, images, popularity, genres, type } = artistData;
+    const { spotifyId, name, images, genres, type } = artistData;
     const newArtist = await prisma.artist.upsert({
       where: { spotifyId },
       update: {},
-      create: { spotifyId, name, images, popularity, genres, type },
+      create: { spotifyId, name, images, genres, type },
     });
 
     return newArtist;
   },
-  async deleteArtist(artistItemId: string) {
-    await prisma.artist.delete({
-      where: { itemId: artistItemId },
-    });
-  },
-  async updateArtistImages(artistItemId: string, images: any) {
+  async updateArtistImages(spotifyId: string, images: any) {
     return await prisma.artist.update({
       where: {
-        itemId: artistItemId,
+        spotifyId
       },
       data: {
         images: images
       },
     });
   },
-  async createBoxArtist(boxId: string, itemId: string, position: number) {
+  async deleteArtist(spotifyId: string) {
+    await prisma.artist.delete({
+      where: { spotifyId },
+    });
+  },
+  async createBoxArtist(boxId: string, spotifyId: string, position: number) {
     const newBoxArtist = await prisma.boxArtist.create({
       data: {
         position,
         note: "",
         box: { connect: { boxId } },
-        artist: { connect: { itemId } },
+        artist: { connect: { spotifyId } },
       },
     });
-
+  
     return newBoxArtist;
   },
-  async deleteBoxArtist(boxId: string, artistId: string) {
+  async deleteBoxArtist(boxArtistId: string) {
     await prisma.boxArtist.deleteMany({
-      where: { boxId, artistId },
+      where: { boxArtistId },
     });
   },
   async createBoxSubsectionArtist(subsectionId: string, boxArtistId: string, position: number) {
@@ -60,37 +60,43 @@ const artistService = {
       where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
     });
   },
-  async getArtistBoxCount(artistSpotifyId: string) {
+  async getArtistBoxCount(spotifyId: string) {
     return await prisma.boxArtist.count({
-      where: { artistId: artistSpotifyId },
+      where: { artistId: spotifyId },
     });
   },
-  async checkArtistInBox(boxId: string, artistSpotifyId: string) {
+  async checkArtistInBox(boxId: string, spotifyId: string) {
     const boxArtist = await prisma.boxArtist.findFirst({
       where: {
         boxId,
         artist: {
-          spotifyId: artistSpotifyId,
+          spotifyId: spotifyId,
         },
       },
     });
-
+  
     return !!boxArtist;
   },
   async checkArtistInSubsection(subsectionId: string, boxArtistId: string) {
     const subsectionArtist = await prisma.boxSubsectionArtist.findUnique({
       where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
     });
-
+  
     return !!subsectionArtist;
   },
-  async getArtistInBox(boxId: string, artistId: string) {
+  async getArtistInBox(boxArtistId: string) {
     const boxArtist = await prisma.boxArtist.findFirst({
-      where: { boxId, artistId },
-      select: { position: true, boxArtistId: true },
+      where: { boxArtistId }
     });
-
+  
     return boxArtist;
+  },
+  async getArtistInSubsection(subsectionId: string, boxArtistId: string) {
+    const subsectionArtist = await prisma.boxSubsectionArtist.findUnique({
+      where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
+    });
+  
+    return subsectionArtist;
   },
   async getMaxBoxArtistPosition(boxId: string) {
     const result = await prisma.boxArtist.aggregate({
@@ -101,7 +107,7 @@ const artistService = {
         position: true,
       },
     });
-
+  
     return result._max.position;
   },
   async getMaxSubsectionArtistPosition(subsectionId: string) {
@@ -113,7 +119,7 @@ const artistService = {
         position: true,
       },
     });
-
+  
     return result._max.position;
   },
   async updateBoxArtistPosition(boxArtistId: string, newPosition: number) {
@@ -122,11 +128,11 @@ const artistService = {
       data: { position: newPosition },
     });
   },
-  async updateSubsequentBoxArtistPositions(boxId: string, artistId: string, position: number) {
+  async updateSubsequentBoxArtistPositions(boxId: string, boxArtistId: string, position: number) {
     await prisma.boxArtist.updateMany({
       where: {
         boxId,
-        artistId: { not: artistId },
+        boxArtistId: { not: boxArtistId },
         position: { gte: position },
       },
       data: { position: { increment: 1 } },
@@ -147,6 +153,22 @@ const artistService = {
       },
       data: { position: { increment: 1 } },
     });
+  },
+  async updateBoxArtistNote(boxArtistId: string, note: string) {
+    const updatedBoxArtist = await prisma.boxArtist.update({
+      where: { boxArtistId },
+      data: { note },
+    });
+  
+    return updatedBoxArtist.note;
+  },
+  async updateBoxSubsectionArtistNote(boxArtistId: string, subsectionId: string, note: string) {
+    const updatedSubsectionArtist = await prisma.boxSubsectionArtist.update({
+      where: { boxArtistId_subsectionId: { boxArtistId, subsectionId } },
+      data: { note },
+    });
+  
+    return updatedSubsectionArtist.note;
   },
   async getBoxWithArtists(boxId: string) {
     return await prisma.box.findUnique({

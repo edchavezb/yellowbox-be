@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { flattenSubsectionItem } from "../../helpers";
+import boxService from "./boxService";
 const prisma = new PrismaClient();
 
 const subsectionService = {
@@ -67,10 +68,10 @@ const subsectionService = {
       return updatedSubsections.map(sub => {
         const { artists, tracks, playlists, albums, ...remainderProps } = sub;
         const flattenedItems = {
-          tracks: tracks.map(track => flattenSubsectionItem(track.boxTrack, track.boxTrack.track)),
-          playlists: playlists.map(playlist => flattenSubsectionItem(playlist.boxPlaylist, playlist.boxPlaylist.playlist)),
-          albums: albums.map(album => flattenSubsectionItem(album.boxAlbum, album.boxAlbum.album)),
-          artists: artists.map(artist => flattenSubsectionItem(artist.boxArtist, artist.boxArtist.artist)),
+          tracks: tracks.map(track => flattenSubsectionItem(track, track.boxTrack.track)),
+          playlists: playlists.map(playlist => flattenSubsectionItem(playlist, playlist.boxPlaylist.playlist)),
+          albums: albums.map(album => flattenSubsectionItem(album, album.boxAlbum.album)),
+          artists: artists.map(artist => flattenSubsectionItem(artist, artist.boxArtist.artist)),
         };
         return { ...remainderProps, items: flattenedItems[sub.itemType as keyof typeof flattenedItems] };
       });

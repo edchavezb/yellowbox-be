@@ -31,144 +31,166 @@ const albumService = {
 
     return newAlbum;
   },
-  async updateAlbumImages(albumItemId: string, images: any) {
+  async updateAlbumImages(spotifyId: string, images: any) {
     return await prisma.album.update({
       where: {
-        itemId: albumItemId,
+        spotifyId
       },
       data: {
         images: images
       },
     });
   },
-  async deleteAlbum(albumItemId: string) {
+  async deleteAlbum(spotifyId: string) {
     await prisma.album.delete({
-      where: { itemId: albumItemId }
+      where: { spotifyId },
     });
   },
-  async createBoxAlbum(boxId: string, itemId: string, position: number) {
+  async createBoxAlbum(boxId: string, spotifyId: string, position: number) {
     const newBoxAlbum = await prisma.boxAlbum.create({
       data: {
-        position: position,
+        position,
         note: "",
-        box: { connect: { boxId: boxId } },
-        album: { connect: { itemId: itemId } }
-      }
+        box: { connect: { boxId } },
+        album: { connect: { spotifyId } },
+      },
     });
-
+  
     return newBoxAlbum;
   },
-  async deleteBoxAlbum(boxId: string, albumId: string) {
+  async deleteBoxAlbum(boxAlbumId: string) {
     await prisma.boxAlbum.deleteMany({
-      where: { boxId: boxId, albumId: albumId },
+      where: { boxAlbumId },
     });
   },
   async createBoxSubsectionAlbum(subsectionId: string, boxAlbumId: string, position: number) {
     await prisma.boxSubsectionAlbum.create({
       data: {
-        position: position,
+        position,
         note: "",
-        boxAlbum: { connect: { boxAlbumId: boxAlbumId } },
-        subsection: { connect: { subsectionId: subsectionId } }
-      }
+        boxAlbum: { connect: { boxAlbumId } },
+        subsection: { connect: { subsectionId } },
+      },
     });
   },
   async deleteBoxSubsectionAlbum(subsectionId: string, boxAlbumId: string) {
     await prisma.boxSubsectionAlbum.delete({
-      where: { boxAlbumId_subsectionId: { subsectionId: subsectionId, boxAlbumId: boxAlbumId } },
+      where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
     });
   },
-  async getAlbumBoxCount(albumSpotifyId: string) {
+  async getAlbumBoxCount(spotifyId: string) {
     return await prisma.boxAlbum.count({
-      where: { albumId: albumSpotifyId }
+      where: { albumId: spotifyId },
     });
   },
-  async checkAlbumInBox(boxId: string, albumSpotifyId: string) {
+  async checkAlbumInBox(boxId: string, spotifyId: string) {
     const boxAlbum = await prisma.boxAlbum.findFirst({
       where: {
-        boxId: boxId,
+        boxId,
         album: {
-          spotifyId: albumSpotifyId
-        }
-      }
+          spotifyId: spotifyId,
+        },
+      },
     });
-
+  
     return !!boxAlbum;
   },
   async checkAlbumInSubsection(subsectionId: string, boxAlbumId: string) {
     const subsectionAlbum = await prisma.boxSubsectionAlbum.findUnique({
-      where: { boxAlbumId_subsectionId: { subsectionId: subsectionId, boxAlbumId: boxAlbumId } },
+      where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
     });
-
+  
     return !!subsectionAlbum;
   },
-  async getAlbumInBox(boxId: string, albumId: string) {
+  async getAlbumInBox(boxAlbumId: string) {
     const boxAlbum = await prisma.boxAlbum.findFirst({
-      where: { boxId: boxId, albumId: albumId },
-      select: { position: true, boxAlbumId: true }
+      where: { boxAlbumId }
     });
-
+  
     return boxAlbum;
+  },
+  async getAlbumInSubsection(subsectionId: string, boxAlbumId: string) {
+    const subsectionAlbum = await prisma.boxSubsectionAlbum.findUnique({
+      where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
+    });
+  
+    return subsectionAlbum;
   },
   async getMaxBoxAlbumPosition(boxId: string) {
     const result = await prisma.boxAlbum.aggregate({
       where: {
-        boxId: boxId
+        boxId,
       },
       _max: {
         position: true,
-      }
+      },
     });
-
+  
     return result._max.position;
   },
   async getMaxSubsectionAlbumPosition(subsectionId: string) {
     const result = await prisma.boxSubsectionAlbum.aggregate({
       where: {
-        subsectionId: subsectionId
+        subsectionId,
       },
       _max: {
         position: true,
-      }
+      },
     });
-
+  
     return result._max.position;
   },
   async updateBoxAlbumPosition(boxAlbumId: string, newPosition: number) {
     await prisma.boxAlbum.update({
-      where: { boxAlbumId: boxAlbumId },
-      data: { position: newPosition }
+      where: { boxAlbumId },
+      data: { position: newPosition },
     });
   },
-  async updateSubsequentBoxAlbumPositions(boxId: string, albumId: string, position: number) {
+  async updateSubsequentBoxAlbumPositions(boxId: string, boxAlbumId: string, position: number) {
     await prisma.boxAlbum.updateMany({
       where: {
-        boxId: boxId,
-        albumId: { not: albumId },
-        position: { gte: position }
+        boxId,
+        boxAlbumId: { not: boxAlbumId },
+        position: { gte: position },
       },
-      data: { position: { increment: 1 } }
+      data: { position: { increment: 1 } },
     });
   },
   async updateSubsectionAlbumPosition(subsectionId: string, boxAlbumId: string, newPosition: number) {
     await prisma.boxSubsectionAlbum.update({
-      where: { boxAlbumId_subsectionId: { subsectionId: subsectionId, boxAlbumId: boxAlbumId } },
-      data: { position: newPosition }
+      where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
+      data: { position: newPosition },
     });
   },
   async updateSubsequentSubsectionAlbumPositions(subsectionId: string, boxAlbumId: string, position: number) {
     await prisma.boxSubsectionAlbum.updateMany({
       where: {
-        subsectionId: subsectionId,
+        subsectionId,
         boxAlbumId: { not: boxAlbumId },
-        position: { gte: position }
+        position: { gte: position },
       },
-      data: { position: { increment: 1 } }
+      data: { position: { increment: 1 } },
     });
+  },
+  async updateBoxAlbumNote(boxAlbumId: string, note: string) {
+    const updatedBoxAlbum = await prisma.boxAlbum.update({
+      where: { boxAlbumId },
+      data: { note },
+    });
+  
+    return updatedBoxAlbum.note;
+  },
+  async updateBoxSubsectionAlbumNote(boxAlbumId: string, subsectionId: string, note: string) {
+    const updatedSubsectionAlbum = await prisma.boxSubsectionAlbum.update({
+      where: { boxAlbumId_subsectionId: { boxAlbumId, subsectionId } },
+      data: { note },
+    });
+  
+    return updatedSubsectionAlbum.note;
   },
   async getBoxWithAlbums(boxId: string) {
     return await prisma.box.findUnique({
-      where: { boxId: boxId },
+      where: { boxId },
       include: {
         albums: {
           include: {
@@ -176,14 +198,14 @@ const albumService = {
             subsections: {
               select: {
                 subsectionId: true,
-                note: true
-              }
-            }
-          }
-        }
-      }
+                note: true,
+              },
+            },
+          },
+        },
+      },
     });
-  }
+  },
 };
 
 export default albumService;

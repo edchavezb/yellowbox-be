@@ -4,26 +4,21 @@ import albumService from "../../../services/boxItem/albumService";
 
 const routes = Router();
 
-// TESTED
 // Add an album to a box
 routes.post("/:boxId/albums", async (req, res) => {
   try {
     const { boxId } = req.params;
     const albumData = req.body.newAlbum;
 
-    // Check if the artist already exists in the box
     const albumInBox = await albumService.checkAlbumInBox(boxId, albumData.spotifyId);
-
     if (albumInBox) {
       return res.status(400).json({ error: "Item already in box" });
     }
 
-    // Check if the album already exists. If not create it.
     const newAlbum = await albumService.createAlbum(albumData);
     const maxAlbumPosition = await albumService.getMaxBoxAlbumPosition(boxId);
-    // Determine the new album position
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
-    const newBoxAlbum = await albumService.createBoxAlbum(boxId, newAlbum.itemId, newAlbumPosition);
+    const newBoxAlbum = await albumService.createBoxAlbum(boxId, newAlbum.spotifyId, newAlbumPosition);
 
     return res.status(201).json(newBoxAlbum);
   } catch (error) {
@@ -32,21 +27,22 @@ routes.post("/:boxId/albums", async (req, res) => {
   }
 });
 
-// TESTED
 // Reorder an album in a box
-routes.put("/:boxId/albums/:albumId/reorder", async (req, res) => {
+routes.put("/:boxId/albums/:boxAlbumId/reorder", async (req, res) => {
   try {
-    const { boxId, albumId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { boxId, boxAlbumId } = req.params;
+    const { destinationId } = req.body;
 
-    const targetAlbum = await albumService.getAlbumInBox(boxId, albumId);
+    const targetAlbum = await albumService.getAlbumInBox(boxAlbumId);
+    const destinationAlbum = await albumService.getAlbumInBox(destinationId);
 
-    if (!targetAlbum) {
+    if (!targetAlbum || !destinationAlbum) {
       return res.status(404).json({ error: "Album not found" });
     }
 
+    const newPosition = destinationAlbum.position;
     await albumService.updateBoxAlbumPosition(targetAlbum.boxAlbumId, newPosition);
-    await albumService.updateSubsequentBoxAlbumPositions(boxId, albumId, newPosition);
+    await albumService.updateSubsequentBoxAlbumPositions(boxId, boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {
@@ -55,21 +51,22 @@ routes.put("/:boxId/albums/:albumId/reorder", async (req, res) => {
   }
 });
 
-// TESTED
 // Delete an album from a box
-routes.delete("/:boxId/albums/:albumId", async (req, res) => {
+routes.delete("/:boxId/albums/:boxAlbumId", async (req, res) => {
   try {
-    const { boxId, albumId } = req.params;
+    const { boxId, boxAlbumId } = req.params;
 
-    const boxAlbumCount = await albumService.getAlbumBoxCount(albumId);
-    await albumService.deleteBoxAlbum(boxId, albumId);
+    const album = await albumService.getAlbumInBox(boxAlbumId);
+
+    const boxAlbumCount = await albumService.getAlbumBoxCount(album!.albumId);
+    await albumService.deleteBoxAlbum(boxAlbumId);
 
     if (boxAlbumCount === 1) {
-      await albumService.deleteAlbum(albumId);
+      await albumService.deleteAlbum(album!.albumId);
     }
 
     const updatedBox = await albumService.getBoxWithAlbums(boxId);
-    const updatedAlbums = updatedBox!.albums.map(item => ({ note: item.note, position: item.position, subsections: item.subsections, ...item.album }))
+    const updatedAlbums = updatedBox!.albums.map(item => ({ note: item.note, position: item.position, subsections: item.subsections, ...item.album }));
 
     return res.status(201).json(updatedAlbums);
   } catch (error) {
@@ -78,15 +75,13 @@ routes.delete("/:boxId/albums/:albumId", async (req, res) => {
   }
 });
 
-// TESTED
 // Add an album to a subsection
 routes.post("/:boxId/subsections/:subsectionId/albums", async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
-    const { itemId } = req.body;
+    const { boxAlbumId } = req.body;
 
-    const boxAlbum = await albumService.getAlbumInBox(boxId, itemId);
-
+    const boxAlbum = await albumService.getAlbumInBox(boxAlbumId);
     const maxAlbumPosition = await albumService.getMaxSubsectionAlbumPosition(subsectionId);
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
     await albumService.createBoxSubsectionAlbum(subsectionId, boxAlbum!.boxAlbumId, newAlbumPosition);
@@ -104,14 +99,16 @@ routes.post("/:boxId/subsections/:subsectionId/albums", async (req, res) => {
 routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async (req, res) => {
   try {
     const { subsectionId, boxAlbumId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { destinationId } = req.body;
 
     const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    const destinationAlbum = await albumService.getAlbumInSubsection(subsectionId, destinationId);
 
-    if (!albumInSubsection) {
+    if (!albumInSubsection || !destinationAlbum) {
       return res.status(404).json({ error: "Album not found" });
     }
 
+    const newPosition = destinationAlbum.position
     await albumService.updateSubsectionAlbumPosition(subsectionId, boxAlbumId, newPosition);
     await albumService.updateSubsequentSubsectionAlbumPositions(subsectionId, boxAlbumId, newPosition);
 
@@ -125,10 +122,43 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async
 // Remove an album from a subsection
 routes.delete("/:boxId/subsections/:subsectionId/albums/:boxAlbumId", async (req, res) => {
   try {
-    const { boxAlbumId, subsectionId } = req.params;
+    const { boxId, boxAlbumId, subsectionId } = req.params;
     await albumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(200).json({ message: "Album removed from subsection successfully" });
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update an album note
+routes.put("/:boxId/albums/:boxAlbumId/note", async (req, res) => {
+  try {
+    const { boxAlbumId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await albumService.updateBoxAlbumNote(boxAlbumId, note);
+
+    return res.status(200).json({ updatedNote });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update an album note in a subsection
+routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/note", async (req, res) => {
+  try {
+    const { boxAlbumId, subsectionId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await albumService.updateBoxSubsectionAlbumNote(
+      boxAlbumId,
+      subsectionId,
+      note
+    );
+
+    return res.status(200).json({ updatedNote });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

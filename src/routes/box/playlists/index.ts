@@ -18,7 +18,7 @@ routes.post("/:boxId/playlists", async (req, res) => {
     const newPlaylist = await playlistService.createPlaylist(playlistData);
     const maxPlaylistPosition = await playlistService.getMaxBoxPlaylistPosition(boxId);
     const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
-    const newBoxPlaylist = await playlistService.createBoxPlaylist(boxId, newPlaylist.itemId, newPlaylistPosition);
+    const newBoxPlaylist = await playlistService.createBoxPlaylist(boxId, newPlaylist.spotifyId, newPlaylistPosition);
 
     return res.status(201).json(newBoxPlaylist);
   } catch (error) {
@@ -28,19 +28,21 @@ routes.post("/:boxId/playlists", async (req, res) => {
 });
 
 // Reorder a playlist in a box
-routes.put("/:boxId/playlists/:playlistId/reorder", async (req, res) => {
+routes.put("/:boxId/playlists/:boxPlaylistId/reorder", async (req, res) => {
   try {
-    const { boxId, playlistId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { boxId, boxPlaylistId } = req.params;
+    const { destinationId } = req.body;
 
-    const targetPlaylist = await playlistService.getPlaylistInBox(boxId, playlistId);
+    const targetPlaylist = await playlistService.getPlaylistInBox(boxPlaylistId);
+    const destinationPlaylist = await playlistService.getPlaylistInBox(destinationId);
 
-    if (!targetPlaylist) {
+    if (!targetPlaylist || !destinationPlaylist) {
       return res.status(404).json({ error: "Playlist not found" });
     }
 
+    const newPosition = destinationPlaylist.position;
     await playlistService.updateBoxPlaylistPosition(targetPlaylist.boxPlaylistId, newPosition);
-    await playlistService.updateSubsequentBoxPlaylistPositions(boxId, playlistId, newPosition);
+    await playlistService.updateSubsequentBoxPlaylistPositions(boxId, boxPlaylistId, newPosition);
 
     return res.status(200).json({ message: "Playlist reordered successfully" });
   } catch (error) {
@@ -50,15 +52,17 @@ routes.put("/:boxId/playlists/:playlistId/reorder", async (req, res) => {
 });
 
 // Delete a playlist from a box
-routes.delete("/:boxId/playlists/:playlistId", async (req, res) => {
+routes.delete("/:boxId/playlists/:boxPlaylistId", async (req, res) => {
   try {
-    const { boxId, playlistId } = req.params;
+    const { boxId, boxPlaylistId } = req.params;
 
-    const boxPlaylistCount = await playlistService.getPlaylistBoxCount(playlistId);
-    await playlistService.deleteBoxPlaylist(boxId, playlistId);
+    const playlist = await playlistService.getPlaylistInBox(boxPlaylistId);
+
+    const boxPlaylistCount = await playlistService.getPlaylistBoxCount(playlist!.playlistId);
+    await playlistService.deleteBoxPlaylist(boxPlaylistId);
 
     if (boxPlaylistCount === 1) {
-      await playlistService.deletePlaylist(playlistId);
+      await playlistService.deletePlaylist(playlist!.playlistId);
     }
 
     const updatedBox = await playlistService.getBoxWithPlaylists(boxId);
@@ -75,9 +79,9 @@ routes.delete("/:boxId/playlists/:playlistId", async (req, res) => {
 routes.post("/:boxId/subsections/:subsectionId/playlists", async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
-    const { itemId } = req.body;
+    const { boxPlaylistId } = req.body;
 
-    const boxPlaylist = await playlistService.getPlaylistInBox(boxId, itemId);
+    const boxPlaylist = await playlistService.getPlaylistInBox(boxPlaylistId);
     const maxPlaylistPosition = await playlistService.getMaxSubsectionPlaylistPosition(subsectionId);
     const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
     await playlistService.createBoxSubsectionPlaylist(subsectionId, boxPlaylist!.boxPlaylistId, newPlaylistPosition);
@@ -95,14 +99,16 @@ routes.post("/:boxId/subsections/:subsectionId/playlists", async (req, res) => {
 routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/reorder", async (req, res) => {
   try {
     const { subsectionId, boxPlaylistId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { destinationId } = req.body;
 
     const playlistInSubsection = await playlistService.checkPlaylistInSubsection(subsectionId, boxPlaylistId);
+    const destinationPlaylist = await playlistService.getPlaylistInSubsection(subsectionId, destinationId);
 
-    if (!playlistInSubsection) {
+    if (!playlistInSubsection || !destinationPlaylist) {
       return res.status(404).json({ error: "Playlist not found" });
     }
 
+    const newPosition = destinationPlaylist.position;
     await playlistService.updateSubsectionPlaylistPosition(subsectionId, boxPlaylistId, newPosition);
     await playlistService.updateSubsequentSubsectionPlaylistPositions(subsectionId, boxPlaylistId, newPosition);
 
@@ -116,10 +122,43 @@ routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/reorder",
 // Remove a playlist from a subsection
 routes.delete("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId", async (req, res) => {
   try {
-    const { boxPlaylistId, subsectionId } = req.params;
+    const { boxId, boxPlaylistId, subsectionId } = req.params;
     await playlistService.deleteBoxSubsectionPlaylist(subsectionId, boxPlaylistId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(200).json({ message: "Playlist removed from subsection successfully" });
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a playlist note
+routes.put("/:boxId/playlists/:boxPlaylistId/note", async (req, res) => {
+  try {
+    const { boxPlaylistId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await playlistService.updateBoxPlaylistNote(boxPlaylistId, note);
+
+    return res.status(200).json({ updatedNote });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a playlist note in a subsection
+routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/note", async (req, res) => {
+  try {
+    const { boxPlaylistId, subsectionId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await playlistService.updateBoxSubsectionPlaylistNote(
+      boxPlaylistId,
+      subsectionId,
+      note
+    );
+
+    return res.status(200).json({ updatedNote });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

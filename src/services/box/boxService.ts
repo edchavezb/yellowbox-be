@@ -36,8 +36,7 @@ const boxService = {
             artist: true,
             subsections: {
               select: {
-                subsectionId: true,
-                note: true
+                subsectionId: true
               }
             }
           },
@@ -50,8 +49,7 @@ const boxService = {
             album: true,
             subsections: {
               select: {
-                subsectionId: true,
-                note: true
+                subsectionId: true
               }
             }
           },
@@ -64,8 +62,7 @@ const boxService = {
             track: true,
             subsections: {
               select: {
-                subsectionId: true,
-                note: true
+                subsectionId: true
               }
             }
           },
@@ -78,8 +75,7 @@ const boxService = {
             playlist: true,
             subsections: {
               select: {
-                subsectionId: true,
-                note: true
+                subsectionId: true
               }
             }
           },
@@ -102,39 +98,70 @@ const boxService = {
         subsections: {
           include: {
             tracks: {
-              include: {
+              select: {
+                boxTrackId: true,
+                subsectionId: true,
+                position: true,
+                note: true,
                 boxTrack: {
-                  include: {
+                  select: {
+                    boxTrackId: true,
                     track: true
                   }
                 }
+              },
+              orderBy: {
+                position: 'asc'
               }
             },
             artists: {
-              include: {
+              select: {
+                boxArtistId: true,
+                subsectionId: true,
+                position: true,
+                note: true,
                 boxArtist: {
-                  include: {
+                  select: {
                     artist: true
                   }
                 }
+              },
+              orderBy: {
+                position: 'asc'
               }
             },
             albums: {
-              include: {
+              select: {
+                boxAlbumId: true,
+                subsectionId: true,
+                position: true,
+                note: true,
                 boxAlbum: {
-                  include: {
+                  select: {
+                    boxAlbumId: true,
                     album: true
                   }
                 }
+              },
+              orderBy: {
+                position: 'asc'
               }
             },
             playlists: {
-              include: {
+              select: {
+                boxPlaylistId: true,
+                subsectionId: true,
+                position: true,
+                note: true,
                 boxPlaylist: {
-                  include: {
+                  select: {
+                    boxPlaylistId: true,
                     playlist: true
                   }
                 }
+              },
+              orderBy: {
+                position: 'asc'
               }
             }
           }
@@ -150,10 +177,10 @@ const boxService = {
       const responseSubsections = box.subsections.map(sub => {
         const { artists, tracks, playlists, albums, ...remainderProps } = sub;
         const flattenedItems = {
-          tracks: tracks.map(track => flattenSubsectionItem(track.boxTrack, track.boxTrack.track)),
-          playlists: playlists.map(playlist => flattenSubsectionItem(playlist.boxPlaylist, playlist.boxPlaylist.playlist)),
-          albums: albums.map(album => flattenSubsectionItem(album.boxAlbum, album.boxAlbum.album)),
-          artists: artists.map(artist => flattenSubsectionItem(artist.boxArtist, artist.boxArtist.artist))
+          tracks: tracks.map(track => flattenSubsectionItem(track, track.boxTrack.track)),
+          playlists: playlists.map(playlist => flattenSubsectionItem(playlist, playlist.boxPlaylist.playlist)),
+          albums: albums.map(album => flattenSubsectionItem(album, album.boxAlbum.album)),
+          artists: artists.map(artist => flattenSubsectionItem(artist, artist.boxArtist.artist))
         }
         const reducedSubsection = { ...remainderProps, items: flattenedItems[sub.itemType as keyof typeof flattenedItems] }
         return reducedSubsection;
@@ -337,13 +364,67 @@ const boxService = {
       }
     });
   },
-  async updateDashboardBoxPosition(boxId: string, newPosition: number){
+  async updateAllBoxSectionSettings(boxId: string, updatedSettings: any) {
+    const { artistSettings, albumSettings, trackSettings, playlistSettings } = updatedSettings;
+    const operations: PrismaPromise<any>[] = [];
+
+    if (artistSettings) {
+      operations.push(
+        prisma.boxSectionSettings.updateMany({
+          where: {
+            boxId: boxId,
+            type: 'artists'
+          },
+          data: artistSettings
+        })
+      );
+    }
+
+    if (albumSettings) {
+      operations.push(
+        prisma.boxSectionSettings.updateMany({
+          where: {
+            boxId: boxId,
+            type: 'albums'
+          },
+          data: albumSettings
+        })
+      );
+    }
+
+    if (trackSettings) {
+      operations.push(
+        prisma.boxSectionSettings.updateMany({
+          where: {
+            boxId: boxId,
+            type: 'tracks'
+          },
+          data: trackSettings
+        })
+      );
+    }
+
+    if (playlistSettings) {
+      operations.push(
+        prisma.boxSectionSettings.updateMany({
+          where: {
+            boxId: boxId,
+            type: 'playlists'
+          },
+          data: playlistSettings
+        })
+      );
+    }
+
+    await prisma.$transaction(operations);
+  },
+  async updateDashboardBoxPosition(boxId: string, newPosition: number) {
     await prisma.box.update({
       where: { boxId: boxId },
       data: { position: newPosition }
     });
   },
-  async incrementSubsequentDashboardBoxPositions(userId: string, boxId: string, newPosition: number){
+  async incrementSubsequentDashboardBoxPositions(userId: string, boxId: string, newPosition: number) {
     await prisma.box.updateMany({
       where: {
         creatorId: userId,
@@ -366,13 +447,13 @@ const boxService = {
       }
     });
   },
-  async updateFolderBoxPosition(boxId: string, newPosition: number){
+  async updateFolderBoxPosition(boxId: string, newPosition: number) {
     await prisma.box.update({
       where: { boxId: boxId },
       data: { folderPosition: newPosition }
     });
   },
-  async incrementSubsequentFolderBoxPositions(boxId: string, folderId: string, newPosition: number){
+  async incrementSubsequentFolderBoxPositions(boxId: string, folderId: string, newPosition: number) {
     await prisma.box.updateMany({
       where: {
         folderId: folderId,
@@ -497,7 +578,7 @@ const boxService = {
     }
   ) {
     const operations: PrismaPromise<any>[] = [];
-  
+
     for (const subsection of originalBox.subsections) {
       // Create the subsection and push the operation to the transaction queue
       const subsectionPromise = prisma.boxSubsection.create({
@@ -508,12 +589,12 @@ const boxService = {
           position: subsection.position,
         },
       });
-  
+
       operations.push(subsectionPromise);
-  
+
       // Wait for subsection creation to resolve and proceed with cloning items
       const newSubsection = await subsectionPromise;
-  
+
       // Clone subsection artists
       subsection.artists.forEach((item: BoxSubsectionArtist) => {
         const newBoxArtistId = boxItemsMap.artistIdMap[item.boxArtistId];
@@ -530,7 +611,7 @@ const boxService = {
           );
         }
       });
-  
+
       // Clone subsection albums
       subsection.albums.forEach((item: BoxSubsectionAlbum) => {
         const newBoxAlbumId = boxItemsMap.albumIdMap[item.boxAlbumId];
@@ -547,7 +628,7 @@ const boxService = {
           );
         }
       });
-  
+
       // Clone subsection tracks
       subsection.tracks.forEach((item: BoxSubsectionTrack) => {
         const newBoxTrackId = boxItemsMap.trackIdMap[item.boxTrackId];
@@ -564,7 +645,7 @@ const boxService = {
           );
         }
       });
-  
+
       // Clone subsection playlists
       subsection.playlists.forEach((item: BoxSubsectionPlaylist) => {
         const newBoxPlaylistId = boxItemsMap.playlistIdMap[item.boxPlaylistId];
@@ -582,10 +663,10 @@ const boxService = {
         }
       });
     }
-  
+
     // Execute all operations (subsection creation + item cloning) in a single transaction
     await prisma.$transaction(operations);
-  },  
+  },
   async cloneBoxSectionSettings(originalBox: any, newBoxId: string) {
     // Collect all PrismaPromise operations to run them in a transaction
     const operations: PrismaPromise<any>[] = [];

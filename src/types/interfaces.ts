@@ -1,3 +1,5 @@
+import { PrismaClient, Album, Artist, Track, Playlist } from '@prisma/client';
+
 export interface UserCreateDTO {
   firebaseId: string
   username: string
@@ -113,84 +115,36 @@ export interface UpdateBoxPayload {
   targetId?: string
 }
 
-export interface Album {
-  album_type: string
-  artists: Artist[]
-  external_urls: {
-    spotify: string
-  }
-  id: string
-  images: ItemImage[]
-  name: string
-  release_date: string
-  total_tracks: number
-  tracks?: {
-    href: string
-    items: Track[]
-    limit?: number
-    next?: string
-    offset?: number
-    previous?: string
-    total: number
-  }
-  type: string
-  uri: string
-  subSectionCount?: number
+export interface SubsectionArtist {
+  position: number; 
+  boxArtistId: string; 
+  subsectionId: string; 
+  note: string | null; 
+  boxArtist: { artist: Artist; };
+} 
+
+export interface SubsectionAlbum {
+  position: number; 
+  boxAlbumId: string; 
+  subsectionId: string; 
+  note: string | null; 
+  boxAlbum: { album: Album; };
 }
 
-export interface Artist {
-  external_urls: {
-    spotify: string
-  }
-  genres?: string[]
-  id: string
-  images?: ItemImage[]
-  name: string
-  popularity?: number
-  type: string
-  uri: string
-  subSectionCount?: number
+export interface SubsectionTrack {
+  position: number; 
+  boxTrackId: string; 
+  subsectionId: string; 
+  note: string | null; 
+  boxTrack: { track: Track; };
 }
 
-export interface Track {
-  album?: Album
-  artists: Artist[]
-  duration_ms: number
-  explicit: string
-  external_urls: {
-    spotify: string
-  }
-  id: string
-  name: string
-  popularity: number
-  preview_url?: string
-  track_number: number
-  type: string
-  uri: string
-  subSectionCount?: number
-}
-
-export interface Playlist {
-  description: string
-  external_urls: {
-    spotify: string
-  }
-  id: string
-  images: ItemImage[]
-  name: string
-  owner: SpotifyUser
-  tracks: {
-    href: string
-    items?: PlaylistItem[]
-    limit?: number
-    next?: string
-    offset?: number
-    previous?: string
-    total: number
-  }
-  type: string
-  uri: string
-  subSectionCount?: number
+export interface SubsectionPlaylist {
+  position: number; 
+  boxPlaylistId: string; 
+  subsectionId: string; 
+  note: string | null; 
+  boxPlaylist: { playlist: Playlist; };
 }
 
 export interface SpotifyUser {

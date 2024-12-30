@@ -139,7 +139,7 @@ async function main() {
         name: "John Mayer"
       }],
       releaseDate: "2003-09-09",
-      totalTracks: 10
+      totalTracks: 10,
     }
   });
 
@@ -212,19 +212,19 @@ async function main() {
     data: [
       {
         boxId: box1.boxId,
-        albumId: album1.itemId,
+        albumId: album1.spotifyId,
         position: 1,
         note: "First album in the box",
       },
       {
         boxId: box1.boxId,
-        albumId: album2.itemId,
+        albumId: album2.spotifyId,
         position: 2,
         note: "Second album in the box",
       },
       {
         boxId: box1.boxId,
-        albumId: album3.itemId,
+        albumId: album3.spotifyId,
         position: 3,
         note: "Third album in the box",
       }

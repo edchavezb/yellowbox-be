@@ -105,26 +105,39 @@ routes.put("/:boxId/undo-delete", authenticate, async (req, res) => {
 });
 
 // TESTED
-// Update a box's section sorting settings
+// Update a box's section sorting settings by type
 routes.put("/:boxId/section-settings/:type", async (req, res) => {
   try {
     const { boxId, type } = req.params;
     const updatedSettings = req.body;
 
     await boxService.updateBoxSectionSettings(boxId, type, updatedSettings);
-    // Retrieve the updated record
-    const updatedSectionSettings = await prisma.boxSectionSettings.findFirst({
-      where: {
-        boxId: boxId,
-        type: type
-      }
-    });
-    return res.status(201).json(updatedSectionSettings);
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json({updatedBox});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
+
+// UNTESTED
+// Update all section sorting settings in a box
+routes.put("/:boxId/section-settings", async (req, res) => {
+  try {
+    const { boxId } = req.params;
+    const updatedSettings = req.body;
+
+    await boxService.updateAllBoxSectionSettings(boxId, updatedSettings);
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json({updatedBox});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 
 // TESTED
 // Add a subsection to a box
@@ -194,9 +207,9 @@ routes.delete("/:boxId/subsections/:subsectionId", async (req, res) => {
     const { boxId, subsectionId } = req.params;
     await subsectionService.deleteSubsection(subsectionId);
 
-    const updatedSubsections = await subsectionService.getUpdatedSubsections(boxId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(201).json(updatedSubsections);
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

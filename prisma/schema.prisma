@@ -21,7 +21,7 @@ model User {
   spotifyAccount UserSpotifyAccount?
   folders        Folder[]
   boxes          Box[]
-  itemReviews    ItemReview[]
+  UserItem       UserItem[]
 }
 
 model UserAccountManagementData {
@@ -92,44 +92,44 @@ model DeletedBox {
 model BoxAlbum {
   boxAlbumId  String               @id @default(uuid()) @db.Uuid
   boxId       String               @db.Uuid
-  albumId     String               @db.Uuid
+  albumId     String
   note        String?
-  position    Int?
+  position    Int
   box         Box                  @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
-  album       Album                @relation(fields: [albumId], references: [itemId])
+  album       Album                @relation(fields: [albumId], references: [spotifyId])
   subsections BoxSubsectionAlbum[] // Relation to subsections
 }
 
 model BoxTrack {
   boxTrackId  String               @id @default(uuid()) @db.Uuid
   boxId       String               @db.Uuid
-  trackId     String               @db.Uuid
+  trackId     String
   note        String?
-  position    Int?
+  position    Int
   box         Box                  @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
-  track       Track                @relation(fields: [trackId], references: [itemId])
+  track       Track                @relation(fields: [trackId], references: [spotifyId])
   subsections BoxSubsectionTrack[] // Relation to subsections
 }
 
 model BoxArtist {
   boxArtistId String                @id @default(uuid()) @db.Uuid
   boxId       String                @db.Uuid
-  artistId    String                @db.Uuid
+  artistId    String
   note        String?
-  position    Int?
+  position    Int
   box         Box                   @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
-  artist      Artist                @relation(fields: [artistId], references: [itemId])
+  artist      Artist                @relation(fields: [artistId], references: [spotifyId])
   subsections BoxSubsectionArtist[] // Relation to subsections
 }
 
 model BoxPlaylist {
   boxPlaylistId String                  @id @default(uuid()) @db.Uuid
   boxId         String                  @db.Uuid
-  playlistId    String                  @db.Uuid
+  playlistId    String
   note          String?
-  position      Int?
+  position      Int
   box           Box                     @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
-  playlist      Playlist                @relation(fields: [playlistId], references: [itemId])
+  playlist      Playlist                @relation(fields: [playlistId], references: [spotifyId])
   subsections   BoxSubsectionPlaylist[] // Relation to subsections
 }
 
@@ -210,19 +210,16 @@ model BoxSubsectionPlaylist {
 }
 
 model Artist {
-  itemId     String      @id @default(uuid()) @db.Uuid
-  spotifyId  String      @unique
-  name       String
-  popularity Int
-  genres     String[]
-  type       String
-  images     Json
-  boxes      BoxArtist[]
+  spotifyId String      @id
+  name      String
+  genres    String[]
+  type      String
+  images    Json
+  boxes     BoxArtist[]
 }
 
 model Album {
-  itemId      String     @id @default(uuid()) @db.Uuid
-  spotifyId   String     @unique
+  spotifyId   String     @id
   name        String
   images      Json
   albumType   String
@@ -234,8 +231,7 @@ model Album {
 }
 
 model Playlist {
-  itemId           String        @id @default(uuid()) @db.Uuid
-  spotifyId        String        @unique
+  spotifyId        String        @id
   name             String
   description      String
   ownerDisplayName String
@@ -247,8 +243,7 @@ model Playlist {
 }
 
 model Track {
-  itemId           String     @id @default(uuid()) @db.Uuid
-  spotifyId        String     @unique
+  spotifyId        String     @id
   name             String
   artists          Json
   albumName        String
@@ -261,16 +256,24 @@ model Track {
   boxes            BoxTrack[]
 }
 
+model UserItem {
+  userItemId    String       @id @default(uuid()) @db.Uuid
+  userId        String       @db.Uuid
+  itemId        String
+  itemType      String
+  queuePosition Int?
+  user          User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  ItemReview    ItemReview[]
+}
+
 model ItemReview {
   reviewId        String          @id @default(uuid()) @db.Uuid
-  spotifyId       String
-  authorId        String          @db.Uuid
-  author          User?           @relation(fields: [authorId], references: [userId], onDelete: Cascade)
+  userItemId      String          @db.Uuid
   content         String
-  itemType        String
   reviewSentiment ReviewSentiment
   createdAt       DateTime        @default(now())
   deletedAt       DateTime?
+  userItem        UserItem        @relation(fields: [userItemId], references: [userItemId], onDelete: Cascade)
 }
 
 enum ReviewSentiment {

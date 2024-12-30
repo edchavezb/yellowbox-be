@@ -18,7 +18,7 @@ routes.post("/:boxId/tracks", async (req, res) => {
     const newTrack = await trackService.createTrack(trackData);
     const maxTrackPosition = await trackService.getMaxBoxTrackPosition(boxId);
     const newTrackPosition = (maxTrackPosition || 0) + 1;
-    const newBoxTrack = await trackService.createBoxTrack(boxId, newTrack.itemId, newTrackPosition);
+    const newBoxTrack = await trackService.createBoxTrack(boxId, newTrack.spotifyId, newTrackPosition);
 
     return res.status(201).json(newBoxTrack);
   } catch (error) {
@@ -28,19 +28,21 @@ routes.post("/:boxId/tracks", async (req, res) => {
 });
 
 // Reorder a track in a box
-routes.put("/:boxId/tracks/:trackId/reorder", async (req, res) => {
+routes.put("/:boxId/tracks/:boxTrackId/reorder", async (req, res) => {
   try {
-    const { boxId, trackId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { boxId, boxTrackId } = req.params;
+    const { destinationId } = req.body;
 
-    const targetTrack = await trackService.getTrackInBox(boxId, trackId);
+    const targetTrack = await trackService.getTrackInBox(boxTrackId);
+    const destinationAlbum = await trackService.getTrackInBox(destinationId);
 
-    if (!targetTrack) {
+    if (!targetTrack || !destinationAlbum) {
       return res.status(404).json({ error: "Track not found" });
     }
 
+    const newPosition = destinationAlbum.position
     await trackService.updateBoxTrackPosition(targetTrack.boxTrackId, newPosition);
-    await trackService.updateSubsequentBoxTrackPositions(boxId, trackId, newPosition);
+    await trackService.updateSubsequentBoxTrackPositions(boxId, boxTrackId, newPosition);
 
     return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {
@@ -50,15 +52,17 @@ routes.put("/:boxId/tracks/:trackId/reorder", async (req, res) => {
 });
 
 // Delete a track from a box
-routes.delete("/:boxId/tracks/:trackId", async (req, res) => {
+routes.delete("/:boxId/tracks/:boxTrackId", async (req, res) => {
   try {
-    const { boxId, trackId } = req.params;
+    const { boxId, boxTrackId } = req.params;
 
-    const boxTrackCount = await trackService.getTrackBoxCount(trackId);
-    await trackService.deleteBoxTrack(boxId, trackId);
+    const track = await trackService.getTrackInBox(boxTrackId);
+
+    const boxTrackCount = await trackService.getTrackBoxCount(track!.trackId);
+    await trackService.deleteBoxTrack(boxTrackId);
 
     if (boxTrackCount === 1) {
-      await trackService.deleteTrack(trackId);
+      await trackService.deleteTrack(track!.trackId);
     }
 
     const updatedBox = await trackService.getBoxWithTracks(boxId);
@@ -75,9 +79,9 @@ routes.delete("/:boxId/tracks/:trackId", async (req, res) => {
 routes.post("/:boxId/subsections/:subsectionId/tracks", async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
-    const { itemId } = req.body;
+    const { boxTrackId } = req.body;
 
-    const boxTrack = await trackService.getTrackInBox(boxId, itemId);
+    const boxTrack = await trackService.getTrackInBox(boxTrackId);
     const maxTrackPosition = await trackService.getMaxSubsectionTrackPosition(subsectionId);
     const newTrackPosition = (maxTrackPosition || 0) + 1;
     await trackService.createBoxSubsectionTrack(subsectionId, boxTrack!.boxTrackId, newTrackPosition);
@@ -95,14 +99,16 @@ routes.post("/:boxId/subsections/:subsectionId/tracks", async (req, res) => {
 routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/reorder", async (req, res) => {
   try {
     const { subsectionId, boxTrackId } = req.params;
-    const newPosition = parseInt(req.body.newPosition);
+    const { destinationId } = req.body;
 
     const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
+    const destinationTrack = await trackService.getTrackInSubsection(subsectionId, destinationId);
 
-    if (!trackInSubsection) {
+    if (!trackInSubsection || !destinationTrack) {
       return res.status(404).json({ error: "Track not found" });
     }
 
+    const newPosition = destinationTrack.position
     await trackService.updateSubsectionTrackPosition(subsectionId, boxTrackId, newPosition);
     await trackService.updateSubsequentSubsectionTrackPositions(subsectionId, boxTrackId, newPosition);
 
@@ -116,10 +122,43 @@ routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/reorder", async
 // Remove a track from a subsection
 routes.delete("/:boxId/subsections/:subsectionId/tracks/:boxTrackId", async (req, res) => {
   try {
-    const { boxTrackId, subsectionId } = req.params;
+    const { boxId, boxTrackId, subsectionId } = req.params;
     await trackService.deleteBoxSubsectionTrack(subsectionId, boxTrackId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(200).json({ message: "Track removed from subsection successfully" });
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a track note
+routes.put("/:boxId/tracks/:boxTrackId/note", async (req, res) => {
+  try {
+    const { boxTrackId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await trackService.updateBoxTrackNote(boxTrackId, note);
+
+    return res.status(200).json({ updatedNote });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a track note in a subsection
+routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/note", async (req, res) => {
+  try {
+    const { boxTrackId, subsectionId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await trackService.updateBoxSubsectionTrackNote(
+      boxTrackId,
+      subsectionId,
+      note
+    );
+
+    return res.status(200).json({ updatedNote });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

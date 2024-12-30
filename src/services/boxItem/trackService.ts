@@ -24,36 +24,36 @@ const trackService = {
 
     return newTrack;
   },
-  async updateTrackImages(trackItemId: string, images: any) {
+  async updateTrackImages(spotifyId: string, images: any) {
     return await prisma.track.update({
       where: {
-        itemId: trackItemId,
+        spotifyId
       },
       data: {
         albumImages: images
       },
     });
   },
-  async deleteTrack(trackItemId: string) {
+  async deleteTrack(spotifyId: string) {
     await prisma.track.delete({
-      where: { itemId: trackItemId },
+      where: { spotifyId },
     });
   },
-  async createBoxTrack(boxId: string, itemId: string, position: number) {
+  async createBoxTrack(boxId: string, spotifyId: string, position: number) {
     const newBoxTrack = await prisma.boxTrack.create({
       data: {
         position,
         note: "",
         box: { connect: { boxId } },
-        track: { connect: { itemId } },
+        track: { connect: { spotifyId } },
       },
     });
-
+  
     return newBoxTrack;
   },
-  async deleteBoxTrack(boxId: string, trackId: string) {
+  async deleteBoxTrack(boxTrackId: string) {
     await prisma.boxTrack.deleteMany({
-      where: { boxId, trackId },
+      where: { boxTrackId },
     });
   },
   async createBoxSubsectionTrack(subsectionId: string, boxTrackId: string, position: number) {
@@ -71,37 +71,43 @@ const trackService = {
       where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
     });
   },
-  async getTrackBoxCount(trackSpotifyId: string) {
+  async getTrackBoxCount(spotifyId: string) {
     return await prisma.boxTrack.count({
-      where: { trackId: trackSpotifyId },
+      where: { trackId: spotifyId },
     });
   },
-  async checkTrackInBox(boxId: string, trackSpotifyId: string) {
+  async checkTrackInBox(boxId: string, spotifyId: string) {
     const boxTrack = await prisma.boxTrack.findFirst({
       where: {
         boxId,
         track: {
-          spotifyId: trackSpotifyId,
+          spotifyId: spotifyId,
         },
       },
     });
-
+  
     return !!boxTrack;
   },
   async checkTrackInSubsection(subsectionId: string, boxTrackId: string) {
     const subsectionTrack = await prisma.boxSubsectionTrack.findUnique({
       where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
     });
-
+  
     return !!subsectionTrack;
   },
-  async getTrackInBox(boxId: string, trackId: string) {
+  async getTrackInBox(boxTrackId: string) {
     const boxTrack = await prisma.boxTrack.findFirst({
-      where: { boxId, trackId },
-      select: { position: true, boxTrackId: true },
+      where: { boxTrackId }
     });
-
+  
     return boxTrack;
+  },
+  async getTrackInSubsection(subsectionId: string, boxTrackId: string) {
+    const subsectionTrack = await prisma.boxSubsectionTrack.findUnique({
+      where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
+    });
+  
+    return subsectionTrack;
   },
   async getMaxBoxTrackPosition(boxId: string) {
     const result = await prisma.boxTrack.aggregate({
@@ -112,7 +118,7 @@ const trackService = {
         position: true,
       },
     });
-
+  
     return result._max.position;
   },
   async getMaxSubsectionTrackPosition(subsectionId: string) {
@@ -124,7 +130,7 @@ const trackService = {
         position: true,
       },
     });
-
+  
     return result._max.position;
   },
   async updateBoxTrackPosition(boxTrackId: string, newPosition: number) {
@@ -133,11 +139,11 @@ const trackService = {
       data: { position: newPosition },
     });
   },
-  async updateSubsequentBoxTrackPositions(boxId: string, trackId: string, position: number) {
+  async updateSubsequentBoxTrackPositions(boxId: string, boxTrackId: string, position: number) {
     await prisma.boxTrack.updateMany({
       where: {
         boxId,
-        trackId: { not: trackId },
+        boxTrackId: { not: boxTrackId },
         position: { gte: position },
       },
       data: { position: { increment: 1 } },
@@ -158,6 +164,22 @@ const trackService = {
       },
       data: { position: { increment: 1 } },
     });
+  },
+  async updateBoxTrackNote(boxTrackId: string, note: string) {
+    const updatedBoxTrack = await prisma.boxTrack.update({
+      where: { boxTrackId },
+      data: { note },
+    });
+  
+    return updatedBoxTrack.note;
+  },
+  async updateBoxSubsectionTrackNote(boxTrackId: string, subsectionId: string, note: string) {
+    const updatedSubsectionTrack = await prisma.boxSubsectionTrack.update({
+      where: { boxTrackId_subsectionId: { boxTrackId, subsectionId } },
+      data: { note },
+    });
+  
+    return updatedSubsectionTrack.note;
   },
   async getBoxWithTracks(boxId: string) {
     return await prisma.box.findUnique({

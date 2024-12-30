@@ -22,36 +22,36 @@ const playlistService = {
 
     return newPlaylist;
   },
-  async updatePlaylistImages(playlistItemId: string, images: any) {
+  async updatePlaylistImages(spotifyId: string, images: any) {
     return await prisma.playlist.update({
       where: {
-        itemId: playlistItemId,
+        spotifyId
       },
       data: {
         images: images
       },
     });
   },
-  async deletePlaylist(playlistItemId: string) {
+  async deletePlaylist(spotifyId: string) {
     await prisma.playlist.delete({
-      where: { itemId: playlistItemId },
+      where: { spotifyId },
     });
   },
-  async createBoxPlaylist(boxId: string, itemId: string, position: number) {
+  async createBoxPlaylist(boxId: string, spotifyId: string, position: number) {
     const newBoxPlaylist = await prisma.boxPlaylist.create({
       data: {
         position,
         note: "",
         box: { connect: { boxId } },
-        playlist: { connect: { itemId } },
+        playlist: { connect: { spotifyId } },
       },
     });
 
     return newBoxPlaylist;
   },
-  async deleteBoxPlaylist(boxId: string, playlistId: string) {
+  async deleteBoxPlaylist(boxPlaylistId: string) {
     await prisma.boxPlaylist.deleteMany({
-      where: { boxId, playlistId },
+      where: { boxPlaylistId },
     });
   },
   async createBoxSubsectionPlaylist(subsectionId: string, boxPlaylistId: string, position: number) {
@@ -69,37 +69,43 @@ const playlistService = {
       where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
     });
   },
-  async getPlaylistBoxCount(playlistSpotifyId: string) {
+  async getPlaylistBoxCount(spotifyId: string) {
     return await prisma.boxPlaylist.count({
-      where: { playlistId: playlistSpotifyId },
+      where: { playlistId: spotifyId },
     });
   },
-  async checkPlaylistInBox(boxId: string, playlistSpotifyId: string) {
+  async checkPlaylistInBox(boxId: string, spotifyId: string) {
     const boxPlaylist = await prisma.boxPlaylist.findFirst({
       where: {
         boxId,
         playlist: {
-          spotifyId: playlistSpotifyId,
+          spotifyId: spotifyId,
         },
       },
     });
-
+  
     return !!boxPlaylist;
   },
   async checkPlaylistInSubsection(subsectionId: string, boxPlaylistId: string) {
     const subsectionPlaylist = await prisma.boxSubsectionPlaylist.findUnique({
       where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
     });
-
+  
     return !!subsectionPlaylist;
   },
-  async getPlaylistInBox(boxId: string, playlistId: string) {
+  async getPlaylistInBox(boxPlaylistId: string) {
     const boxPlaylist = await prisma.boxPlaylist.findFirst({
-      where: { boxId, playlistId },
-      select: { position: true, boxPlaylistId: true },
+      where: { boxPlaylistId }
     });
-
+  
     return boxPlaylist;
+  },
+  async getPlaylistInSubsection(subsectionId: string, boxPlaylistId: string) {
+    const subsectionPlaylist = await prisma.boxSubsectionPlaylist.findUnique({
+      where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
+    });
+  
+    return subsectionPlaylist;
   },
   async getMaxBoxPlaylistPosition(boxId: string) {
     const result = await prisma.boxPlaylist.aggregate({
@@ -131,11 +137,11 @@ const playlistService = {
       data: { position: newPosition },
     });
   },
-  async updateSubsequentBoxPlaylistPositions(boxId: string, playlistId: string, position: number) {
+  async updateSubsequentBoxPlaylistPositions(boxId: string, boxPlaylistId: string, position: number) {
     await prisma.boxPlaylist.updateMany({
       where: {
         boxId,
-        playlistId: { not: playlistId },
+        boxPlaylistId: { not: boxPlaylistId },
         position: { gte: position },
       },
       data: { position: { increment: 1 } },
@@ -157,6 +163,22 @@ const playlistService = {
       data: { position: { increment: 1 } },
     });
   },
+  async updateBoxPlaylistNote(boxPlaylistId: string, note: string) {
+    const updatedBoxPlaylist = await prisma.boxPlaylist.update({
+      where: { boxPlaylistId },
+      data: { note },
+    });
+  
+    return updatedBoxPlaylist.note;
+  },
+  async updateBoxSubsectionPlaylistNote(boxPlaylistId: string, subsectionId: string, note: string) {
+    const updatedSubsectionPlaylist = await prisma.boxSubsectionPlaylist.update({
+      where: { boxPlaylistId_subsectionId: { boxPlaylistId, subsectionId } },
+      data: { note },
+    });
+  
+    return updatedSubsectionPlaylist.note;
+  },    
   async getBoxWithPlaylists(boxId: string) {
     return await prisma.box.findUnique({
       where: { boxId },

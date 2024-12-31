@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "author": "Jake Runzer",
   "license": "MIT",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "dev": "nodemon --exec npx ts-node --files src/index.ts",
     "build": "tsc",

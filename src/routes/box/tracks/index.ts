@@ -1,42 +1,24 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import boxService from "../../../services/box/boxService";
+import trackService from "../../../services/boxItem/trackService";
 
-const prisma = new PrismaClient();
 const routes = Router();
 
 // Add a track to a box
 routes.post("/:boxId/tracks", async (req, res) => {
   try {
     const { boxId } = req.params;
-    const { spotifyUrl, spotifyId, spotifyUri, name, artists, albumName, albumId, albumImages, durationMs, explicit, popularity, type, boxPosition } = req.body;
+    const trackData = req.body.newTrack;
 
-    // Create the track
-    const newTrack = await prisma.track.create({
-      data: {
-        spotifyUrl,
-        spotifyId,
-        spotifyUri,
-        name,
-        artists,
-        albumName,
-        albumId,
-        albumImages,
-        durationMs,
-        explicit,
-        popularity,
-        type
-      },
-    });
+    const trackInBox = await trackService.checkTrackInBox(boxId, trackData.spotifyId);
+    if (trackInBox) {
+      return res.status(400).json({ error: "Item already in box" });
+    }
 
-    // Link the track to the box with additional data in the intersection table
-    const newBoxTrack = await prisma.boxTrack.create({
-      data: {
-        position: boxPosition,
-        note: "",
-        box: { connect: { boxId: boxId } },
-        track: { connect: { trackId: newTrack.trackId } },
-      },
-    });
+    const newTrack = await trackService.createTrack(trackData);
+    const maxTrackPosition = await trackService.getMaxBoxTrackPosition(boxId);
+    const newTrackPosition = (maxTrackPosition || 0) + 1;
+    const newBoxTrack = await trackService.createBoxTrack(boxId, newTrack.spotifyId, newTrackPosition);
 
     return res.status(201).json(newBoxTrack);
   } catch (error) {
@@ -46,36 +28,21 @@ routes.post("/:boxId/tracks", async (req, res) => {
 });
 
 // Reorder a track in a box
-routes.put("/:boxId/tracks/:trackId/reorder", async (req, res) => {
+routes.put("/:boxId/tracks/:boxTrackId/reorder", async (req, res) => {
   try {
-    const { boxId, trackId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const { boxId, boxTrackId } = req.params;
+    const { destinationId } = req.body;
 
-    // Get the target track
-    const targetTrack = await prisma.boxTrack.findUnique({
-      where: { trackId_boxId: { boxId: boxId, trackId: trackId } },
-      select: { position: true }
-    });
+    const targetTrack = await trackService.getTrackInBox(boxTrackId);
+    const destinationAlbum = await trackService.getTrackInBox(destinationId);
 
-    if (!targetTrack) {
+    if (!targetTrack || !destinationAlbum) {
       return res.status(404).json({ error: "Track not found" });
     }
 
-    // Update the position of the target track
-    await prisma.boxTrack.update({
-      where: { trackId_boxId: { boxId: boxId, trackId: trackId } },
-      data: { position: newPosition }
-    });
-
-    // Update the positions of other tracks in the same box
-    await prisma.boxTrack.updateMany({
-      where: {
-        boxId: boxId,
-        trackId: { not: trackId }, // Exclude the target track
-        position: { gte: newPosition } // Select tracks with positions greater than or equal to the target position
-      },
-      data: { position: { increment: 1 } } // Increment the position of selected tracks by 1
-    });
+    const newPosition = destinationAlbum.position
+    await trackService.updateBoxTrackPosition(targetTrack.boxTrackId, newPosition);
+    await trackService.updateSubsequentBoxTrackPositions(boxId, boxTrackId, newPosition);
 
     return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {
@@ -84,53 +51,23 @@ routes.put("/:boxId/tracks/:trackId/reorder", async (req, res) => {
   }
 });
 
-
-// Update a track's images
-routes.put(":trackId/images", async (req, res) => {
-  try {
-    const { trackId } = req.params;
-    const { images } = req.body;
-
-    const updatedBox = await prisma.track.update({
-      where: {
-        trackId: trackId,
-      },
-      data: {
-        albumImages: images
-      },
-    });
-
-    return res.status(200).json({ updatedBox });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
 // Delete a track from a box
-routes.delete("/:boxId/tracks/:trackId", async (req, res) => {
+routes.delete("/:boxId/tracks/:boxTrackId", async (req, res) => {
   try {
-    const { boxId, trackId } = req.params;
+    const { boxId, boxTrackId } = req.params;
 
-    // Count the number of BoxTrack records for the specified trackId
-    const boxTrackCount = await prisma.boxTrack.count({
-      where: { trackId: trackId }
-    });
+    const track = await trackService.getTrackInBox(boxTrackId);
 
-    await prisma.boxTrack.delete({
-      where: { trackId_boxId: { boxId: boxId, trackId: trackId } },
-    });
+    const boxTrackCount = await trackService.getTrackBoxCount(track!.trackId);
+    await trackService.deleteBoxTrack(boxTrackId);
 
-    // If the count is 1, delete the Track
     if (boxTrackCount === 1) {
-      await prisma.track.delete({
-        where: { trackId: trackId }
-      });
-
-      return res.status(200).json({ message: "Track and its associated BoxTrack deleted successfully" });
-    } else {
-      return res.status(200).json({ message: "Only the associated BoxTrack deleted. Track was not deleted." });
+      await trackService.deleteTrack(track!.trackId);
     }
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -138,21 +75,19 @@ routes.delete("/:boxId/tracks/:trackId", async (req, res) => {
 });
 
 // Add a track to a subsection
-routes.post(":subsectionId/tracks/:trackId", async (req, res) => {
+routes.post("/:boxId/subsections/:subsectionId/tracks", async (req, res) => {
   try {
-    const { trackId, subsectionId, subsectionPosition } = req.params;
+    const { boxId, subsectionId } = req.params;
+    const { boxTrackId } = req.body;
 
-    // Create a record in the BoxSubsectionTrack table
-    await prisma.boxSubsectionTrack.create({
-      data: {
-        position: parseInt(subsectionPosition),
-        note: "",
-        track: { connect: { trackId: trackId } },
-        boxSubsection: { connect: { subsectionId: parseInt(subsectionId) } }
-      }
-    });
+    const boxTrack = await trackService.getTrackInBox(boxTrackId);
+    const maxTrackPosition = await trackService.getMaxSubsectionTrackPosition(subsectionId);
+    const newTrackPosition = (maxTrackPosition || 0) + 1;
+    await trackService.createBoxSubsectionTrack(subsectionId, boxTrack!.boxTrackId, newTrackPosition);
 
-    return res.status(201).json({ message: "Track added to subsection successfully" });
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -160,36 +95,21 @@ routes.post(":subsectionId/tracks/:trackId", async (req, res) => {
 });
 
 // Reorder a track in a subsection
-routes.put("/:subsectionId/tracks/:trackId/reorder", async (req, res) => {
+routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/reorder", async (req, res) => {
   try {
-    const { subsectionId, trackId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const { subsectionId, boxTrackId } = req.params;
+    const { destinationId } = req.body;
 
-    // Get the target track
-    const targetTrack = await prisma.boxSubsectionTrack.findUnique({
-      where: { trackId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), trackId: trackId } },
-      select: { position: true }
-    });
+    const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
+    const destinationTrack = await trackService.getTrackInSubsection(subsectionId, destinationId);
 
-    if (!targetTrack) {
+    if (!trackInSubsection || !destinationTrack) {
       return res.status(404).json({ error: "Track not found" });
     }
 
-    // Update the position of the target track
-    await prisma.boxSubsectionTrack.update({
-      where: { trackId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), trackId: trackId } },
-      data: { position: newPosition }
-    });
-
-    // Update the positions of other tracks in the same box
-    await prisma.boxSubsectionTrack.updateMany({
-      where: {
-        boxSubsectionId: parseInt(subsectionId),
-        trackId: { not: trackId }, // Exclude the target track
-        position: { gte: newPosition } // Select tracks with positions greater than or equal to the target position
-      },
-      data: { position: { increment: 1 } } // Increment the position of selected tracks by 1
-    });
+    const newPosition = destinationTrack.position
+    await trackService.updateSubsectionTrackPosition(subsectionId, boxTrackId, newPosition);
+    await trackService.updateSubsequentSubsectionTrackPositions(subsectionId, boxTrackId, newPosition);
 
     return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {
@@ -199,16 +119,45 @@ routes.put("/:subsectionId/tracks/:trackId/reorder", async (req, res) => {
 });
 
 // Remove a track from a subsection
-routes.delete(":subsectionId/tracks/:trackId", async (req, res) => {
+routes.delete("/:boxId/subsections/:subsectionId/tracks/:boxTrackId", async (req, res) => {
   try {
-    const { trackId, subsectionId } = req.params;
+    const { boxId, boxTrackId, subsectionId } = req.params;
+    await trackService.deleteBoxSubsectionTrack(subsectionId, boxTrackId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    // Delete the record from the BoxSubsectionTrack table
-    await prisma.boxSubsectionTrack.delete({
-      where: { trackId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), trackId: trackId } },
-    });
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
 
-    return res.status(200).json({ message: "Track removed from subsection successfully" });
+// Update a track note
+routes.put("/:boxId/tracks/:boxTrackId/note", async (req, res) => {
+  try {
+    const { boxTrackId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await trackService.updateBoxTrackNote(boxTrackId, note);
+
+    return res.status(200).json({ updatedNote });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update a track note in a subsection
+routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/note", async (req, res) => {
+  try {
+    const { boxTrackId, subsectionId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await trackService.updateBoxSubsectionTrackNote(
+      boxTrackId,
+      subsectionId,
+      note
+    );
+
+    return res.status(200).json({ updatedNote });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

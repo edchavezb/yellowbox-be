@@ -1,39 +1,24 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import boxService from "../../../services/box/boxService";
+import artistService from "../../../services/boxItem/artistService";
 
-const prisma = new PrismaClient();
 const routes = Router();
 
 // Add an artist to a box
 routes.post("/:boxId/artists", async (req, res) => {
   try {
     const { boxId } = req.params;
-    const { spotifyId, spotifyUrl, spotifyUri, name, images, type, popularity, genres, boxPosition } = req.body;
+    const artistData = req.body.newArtist;
 
-    // Check if the artist already exists. If not create it.
-    const artist = await prisma.artist.upsert({
-      where: { spotifyId: spotifyId },
-      update: {},
-      create: {
-        spotifyUrl,
-        spotifyId,
-        spotifyUri,
-        name,
-        images,
-        type,
-        popularity,
-        genres
-      }
-    });
+    const artistInBox = await artistService.checkArtistInBox(boxId, artistData.spotifyId);
+    if (artistInBox) {
+      return res.status(400).json({ error: "Item already in box" });
+    }
 
-    const newBoxArtist = await prisma.boxArtist.create({
-      data: {
-        position: boxPosition,
-        note: "",
-        box: { connect: { boxId: boxId } },
-        artist: { connect: { artistId: artist.artistId } }
-      }
-    });
+    const newArtist = await artistService.createArtist(artistData);
+    const maxArtistPosition = await artistService.getMaxBoxArtistPosition(boxId);
+    const newArtistPosition = (maxArtistPosition || 0) + 1;
+    const newBoxArtist = await artistService.createBoxArtist(boxId, newArtist.spotifyId, newArtistPosition);
 
     return res.status(201).json(newBoxArtist);
   } catch (error) {
@@ -43,33 +28,21 @@ routes.post("/:boxId/artists", async (req, res) => {
 });
 
 // Reorder an artist in a box
-routes.put("/:boxId/artists/:artistId/reorder", async (req, res) => {
+routes.put("/:boxId/artists/:boxArtistId/reorder", async (req, res) => {
   try {
-    const { boxId, artistId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const { boxId, boxArtistId } = req.params;
+    const { destinationId } = req.body;
 
-    const targetArtist = await prisma.boxArtist.findUnique({
-      where: { artistId_boxId: { boxId: boxId, artistId: artistId } },
-      select: { position: true }
-    });
+    const targetArtist = await artistService.getArtistInBox(boxArtistId);
+    const destinationArtist = await artistService.getArtistInBox(destinationId);
 
-    if (!targetArtist) {
+    if (!targetArtist || !destinationArtist) {
       return res.status(404).json({ error: "Artist not found" });
     }
 
-    await prisma.boxArtist.update({
-      where: { artistId_boxId: { boxId: boxId, artistId: artistId } },
-      data: { position: newPosition }
-    });
-
-    await prisma.boxArtist.updateMany({
-      where: {
-        boxId: boxId,
-        artistId: { not: artistId },
-        position: { gte: newPosition }
-      },
-      data: { position: { increment: 1 } }
-    });
+    const newPosition = destinationArtist.position;
+    await artistService.updateBoxArtistPosition(targetArtist.boxArtistId, newPosition);
+    await artistService.updateSubsequentBoxArtistPositions(boxId, boxArtistId, newPosition);
 
     return res.status(200).json({ message: "Artist reordered successfully" });
   } catch (error) {
@@ -78,50 +51,23 @@ routes.put("/:boxId/artists/:artistId/reorder", async (req, res) => {
   }
 });
 
-// Update an artist's images
-routes.put(":artistId/images", async (req, res) => {
-  try {
-    const { artistId } = req.params;
-    const { images } = req.body;
-
-    const updatedArtist = await prisma.artist.update({
-      where: {
-        artistId: artistId,
-      },
-      data: {
-        images: images
-      },
-    });
-
-    return res.status(200).json({ updatedArtist });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
 // Delete an artist from a box
-routes.delete("/:boxId/artists/:artistId", async (req, res) => {
+routes.delete("/:boxId/artists/:boxArtistId", async (req, res) => {
   try {
-    const { boxId, artistId } = req.params;
+    const { boxId, boxArtistId } = req.params;
 
-    const boxArtistCount = await prisma.boxArtist.count({
-      where: { artistId: artistId }
-    });
+    const artist = await artistService.getArtistInBox(boxArtistId);
 
-    await prisma.boxArtist.delete({
-      where: { artistId_boxId: { boxId: boxId, artistId: artistId } },
-    });
+    const boxArtistCount = await artistService.getArtistBoxCount(artist!.artistId);
+    await artistService.deleteBoxArtist(boxArtistId);
 
     if (boxArtistCount === 1) {
-      await prisma.artist.delete({
-        where: { artistId: artistId }
-      });
-
-      return res.status(200).json({ message: "Artist and its associated BoxArtist deleted successfully" });
-    } else {
-      return res.status(200).json({ message: "Only the associated BoxArtist deleted. Artist was not deleted." });
+      await artistService.deleteArtist(artist!.artistId);
     }
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -129,21 +75,19 @@ routes.delete("/:boxId/artists/:artistId", async (req, res) => {
 });
 
 // Add an artist to a subsection
-routes.post(":subsectionId/artists/:artistId", async (req, res) => {
+routes.post("/:boxId/subsections/:subsectionId/artists", async (req, res) => {
   try {
-    const { artistId, subsectionId, subsectionPosition } = req.params;
+    const { boxId, subsectionId } = req.params;
+    const { boxArtistId } = req.body;
 
-    // Create a record in the BoxSubsectionArtist table
-    await prisma.boxSubsectionArtist.create({
-      data: {
-        position: parseInt(subsectionPosition),
-        note: "",
-        artist: { connect: { artistId: artistId } },
-        boxSubsection: { connect: { subsectionId: parseInt(subsectionId) } }
-      }
-    });
+    const boxArtist = await artistService.getArtistInBox(boxArtistId);
+    const maxArtistPosition = await artistService.getMaxSubsectionArtistPosition(subsectionId);
+    const newArtistPosition = (maxArtistPosition || 0) + 1;
+    await artistService.createBoxSubsectionArtist(subsectionId, boxArtist!.boxArtistId, newArtistPosition);
 
-    return res.status(201).json({ message: "Artist added to subsection successfully" });
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -151,36 +95,21 @@ routes.post(":subsectionId/artists/:artistId", async (req, res) => {
 });
 
 // Reorder an artist in a subsection
-routes.put("/:subsectionId/artists/:artistId/reorder", async (req, res) => {
+routes.put("/:boxId/subsections/:subsectionId/artists/:boxArtistId/reorder", async (req, res) => {
   try {
-    const { subsectionId, artistId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const { subsectionId, boxArtistId } = req.params;
+    const { destinationId } = req.body;
 
-    // Get the target artist
-    const targetArtist = await prisma.boxSubsectionArtist.findUnique({
-      where: { artistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), artistId: artistId } },
-      select: { position: true }
-    });
+    const artistInSubsection = await artistService.checkArtistInSubsection(subsectionId, boxArtistId);
+    const destinationArtist = await artistService.getArtistInSubsection(subsectionId, destinationId);
 
-    if (!targetArtist) {
+    if (!artistInSubsection || !destinationArtist) {
       return res.status(404).json({ error: "Artist not found" });
     }
 
-    // Update the position of the target artist
-    await prisma.boxSubsectionArtist.update({
-      where: { artistId_boxSubsectionId: { boxSubsectionId: parseInt(subsectionId), artistId: artistId } },
-      data: { position: newPosition }
-    });
-
-    // Update the positions of other artists in the same subsection
-    await prisma.boxSubsectionArtist.updateMany({
-      where: {
-        boxSubsectionId: parseInt(subsectionId),
-        artistId: { not: artistId }, // Exclude the target artist
-        position: { gte: newPosition } // Select artists with positions greater than or equal to the target position
-      },
-      data: { position: { increment: 1 } } // Increment the position of selected artists by 1
-    });
+    const newPosition = destinationArtist.position;
+    await artistService.updateSubsectionArtistPosition(subsectionId, boxArtistId, newPosition);
+    await artistService.updateSubsequentSubsectionArtistPositions(subsectionId, boxArtistId, newPosition);
 
     return res.status(200).json({ message: "Artist reordered successfully" });
   } catch (error) {
@@ -190,16 +119,45 @@ routes.put("/:subsectionId/artists/:artistId/reorder", async (req, res) => {
 });
 
 // Remove an artist from a subsection
-routes.delete(":subsectionId/artists/:artistId", async (req, res) => {
+routes.delete("/:boxId/subsections/:subsectionId/artists/:boxArtistId", async (req, res) => {
   try {
-    const { artistId, subsectionId } = req.params;
+    const { boxId, boxArtistId, subsectionId } = req.params;
+    await artistService.deleteBoxSubsectionArtist(subsectionId, boxArtistId);
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    // Delete the record from the BoxSubsectionArtist table
-    await prisma.boxSubsectionArtist.delete({
-      where: { artistId_boxSubsectionId: { artistId, boxSubsectionId: parseInt(subsectionId) } },
-    });
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
 
-    return res.status(200).json({ message: "Artist removed from subsection successfully" });
+// Update an artist note
+routes.put("/:boxId/artists/:boxArtistId/note", async (req, res) => {
+  try {
+    const { boxArtistId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await artistService.updateBoxArtistNote(boxArtistId, note);
+
+    return res.status(200).json({ updatedNote });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Update an artist note in a subsection
+routes.put("/:boxId/subsections/:subsectionId/artists/:boxArtistId/note", async (req, res) => {
+  try {
+    const { boxArtistId, subsectionId } = req.params;
+    const { note } = req.body;
+    const updatedNote = await artistService.updateBoxSubsectionArtistNote(
+      boxArtistId,
+      subsectionId,
+      note
+    );
+
+    return res.status(200).json({ updatedNote });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

@@ -5,6 +5,7 @@ import boxService from "../../services/box/boxService";
 
 const routes = Router();
 
+// TESTED
 // Get a single folder by id
 routes.get("/:folderId", async (req, res) => {
   try {
@@ -17,6 +18,7 @@ routes.get("/:folderId", async (req, res) => {
   }
 });
 
+// TESTED
 // Create a folder
 routes.post("/", async (req, res) => {
   try {
@@ -32,6 +34,7 @@ routes.post("/", async (req, res) => {
   }
 });
 
+// TESTED
 // Update a folder
 routes.put("/:folderId/folder-details", async (req, res) => {
   try {
@@ -47,6 +50,7 @@ routes.put("/:folderId/folder-details", async (req, res) => {
   }
 });
 
+// TESTED
 // Delete a folder
 routes.delete("/:folderId", async (req, res) => {
   try {
@@ -64,6 +68,7 @@ routes.delete("/:folderId", async (req, res) => {
   }
 });
 
+// TESTED
 // Add a box to a folder
 routes.post("/:folderId/boxes", async (req, res) => {
   try {
@@ -81,16 +86,18 @@ routes.post("/:folderId/boxes", async (req, res) => {
   }
 });
 
+// TESTED
 // Reorder a box within a folder
-routes.put("/:folderId/reorder-box/:boxId", async (req, res) => {
+routes.put("/:folderId/boxes/:boxId/reorder", async (req, res) => {
   try {
     const { folderId, boxId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const { destinationId } = req.body;
 
     // Get the target box
     const targetBox = await boxService.getBoxExists(boxId);
+    const newPosition = await boxService.getBoxFolderPosition(destinationId);
 
-    if (!targetBox) {
+    if (!targetBox || !newPosition) {
       return res.status(404).json({ error: "Box not found" });
     }
 
@@ -107,6 +114,7 @@ routes.put("/:folderId/reorder-box/:boxId", async (req, res) => {
   }
 });
 
+// TESTED
 // Remove a box from a folder
 routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
   try {
@@ -130,13 +138,14 @@ routes.delete("/:folderId/boxes/:boxId", async (req, res) => {
   }
 });
 
+// TESTED
 // Move a box between folders
 routes.put("/:sourceFolderId/boxes/:boxId/change-folder", async (req, res) => {
   try {
     const { sourceFolderId, boxId } = req.params;
-    const { targetFolderId, folderPosition } = req.body;
+    const { targetFolderId, newFolderPosition } = req.body;
 
-    await boxService.addBoxToFolder(boxId, targetFolderId, folderPosition);
+    await boxService.addBoxToFolder(boxId, targetFolderId, newFolderPosition);
     const updatedSourceFolder = await folderService.getDashboardFolder(sourceFolderId);
     const updatedTargetFolder = await folderService.getDashboardFolder(targetFolderId);
 
@@ -146,6 +155,5 @@ routes.put("/:sourceFolderId/boxes/:boxId/change-folder", async (req, res) => {
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
-
 
 export default routes;

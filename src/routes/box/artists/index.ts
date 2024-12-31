@@ -65,10 +65,9 @@ routes.delete("/:boxId/artists/:boxArtistId", async (req, res) => {
       await artistService.deleteArtist(artist!.artistId);
     }
 
-    const updatedBox = await artistService.getBoxWithArtists(boxId);
-    const updatedArtists = updatedBox!.artists.map(item => ({ note: item.note, position: item.position, subsections: item.subsections, ...item.artist }));
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(201).json(updatedArtists);
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

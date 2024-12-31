@@ -15,7 +15,11 @@ const prisma = new PrismaClient();
 routes.get("/:boxId", async (req, res) => {
   try {
     const { boxId } = req.params;
+
     const boxData = await boxService.getBoxById(boxId);
+    if (!boxData) {
+      return res.status(404).json({ error: "Box not found" });
+    }
 
     return res.status(200).json({
       boxData
@@ -161,15 +165,17 @@ routes.post("/:boxId/subsections", async (req, res) => {
 routes.put("/:boxId/subsections/:subsectionId/reorder", async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
-    const newPosition = parseInt(req.body.position);
+    const {destinationId} = req.body;
 
     // Get the target subsection
     const targetSubsection = await subsectionService.getSubsectionSimple(subsectionId);
+    const destinationSubsection = await subsectionService.getSubsectionSimple(destinationId);
 
-    if (!targetSubsection) {
+    if (!targetSubsection || !destinationSubsection) {
       return res.status(404).json({ error: "Subsection not found" });
     }
 
+    const newPosition = destinationSubsection.position;
     // Update the position of the target subsection
     await subsectionService.updateSubsectionPosition(subsectionId, newPosition);
 
@@ -262,12 +268,12 @@ routes.post("/:boxId/clone", async (req, res) => {
       }
     });
 
-    const newBoxId = newBox.boxId;
+    const { boxId: newBoxId, position, folderId, folderPosition, name: newBoxName }  = newBox;
     const boxItemsMap = await boxService.cloneBoxItems(originalBox, newBoxId);
     await boxService.cloneBoxSubsections(originalBox, newBoxId, boxItemsMap);
     await boxService.cloneBoxSectionSettings(originalBox, newBoxId);
 
-    return res.status(201).json({ boxId: newBoxId, boxName: newBox.name });
+    return res.status(201).json({ boxId: newBoxId, name: newBoxName, position, folderId, folderPosition });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

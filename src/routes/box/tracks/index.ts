@@ -65,10 +65,9 @@ routes.delete("/:boxId/tracks/:boxTrackId", async (req, res) => {
       await trackService.deleteTrack(track!.trackId);
     }
 
-    const updatedBox = await trackService.getBoxWithTracks(boxId);
-    const updatedTracks = updatedBox!.tracks.map(item => ({ note: item.note, position: item.position, subsections: item.subsections, ...item.track }));
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(201).json(updatedTracks);
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

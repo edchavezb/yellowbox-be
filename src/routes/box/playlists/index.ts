@@ -65,10 +65,9 @@ routes.delete("/:boxId/playlists/:boxPlaylistId", async (req, res) => {
       await playlistService.deletePlaylist(playlist!.playlistId);
     }
 
-    const updatedBox = await playlistService.getBoxWithPlaylists(boxId);
-    const updatedPlaylists = updatedBox!.playlists.map(item => ({ note: item.note, position: item.position, subsections: item.subsections, ...item.playlist }));
+    const updatedBox = await boxService.getBoxById(boxId);
 
-    return res.status(201).json(updatedPlaylists);
+    return res.status(201).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

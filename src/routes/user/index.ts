@@ -176,6 +176,20 @@ routes.get("/:userId/boxes", async (req, res) => {
 });
 
 // TESTED
+// Get a user's dashboard boxes
+routes.get("/:userId/boxes/unparented", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const boxes = await boxService.getDashboardBoxes(userId);
+
+    return res.json(boxes);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// TESTED
 // Get a user's folders
 routes.get("/:userId/folders", async (req, res) => {
   try {
@@ -191,26 +205,27 @@ routes.get("/:userId/folders", async (req, res) => {
 
 // TESTED
 // Reorder user boxes
-routes.put("/:userId/reorder-box/:boxId", async (req, res) => {
+routes.put("/:userId/boxes/:boxId/reorder", async (req, res) => {
   try {
     const { userId, boxId } = req.params;
-    const { newPosition } = req.body;
+    const { destinationId } = req.body;
 
     // Get the box to be reordered
     const boxExists = await boxService.getBoxExists(boxId);
+    const newPosition = await boxService.getBoxPosition(destinationId);
 
-    if (!boxExists) {
+    if (!boxExists || !newPosition) {
       return res.status(404).json({ message: "Box not found." });
     }
 
     // Update the position of the box to be reordered
-    const updatedBox = await boxService.updateDashboardBoxPosition(boxId, newPosition);
+    await boxService.updateDashboardBoxPosition(boxId, newPosition);
 
     // Increment the position of other boxes with the same creatorId
     await boxService.incrementSubsequentDashboardBoxPositions(userId, boxId, newPosition);
 
     // Return the updated box
-    return res.status(200).json(updatedBox);
+    return res.status(200).json({ message: "Box reordered successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

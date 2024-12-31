@@ -190,7 +190,7 @@ const boxService = {
     }
 
     else {
-      return {}
+      return null
     }
   },
   async getUserBoxes(userId: string) {
@@ -226,6 +226,38 @@ const boxService = {
         position: 'asc' // Order by position
       }
     });
+  },
+  async getBoxPosition(boxId: string) {
+    const box = await prisma.box.findUnique({
+      where: {
+        boxId: boxId
+      },
+      select: {
+        position: true
+      }
+    });
+
+    if (!box) {
+      return null;
+    }
+
+    return box.position
+  },
+  async getBoxFolderPosition(boxId: string) {
+    const box = await prisma.box.findUnique({
+      where: {
+        boxId: boxId
+      },
+      select: {
+        folderPosition: true
+      }
+    });
+
+    if (!box) {
+      return null;
+    }
+
+    return box.folderPosition;
   },
   async getMaxPositionDashboard(userId: string) {
     const result = await prisma.box.aggregate({

@@ -10,8 +10,8 @@
   },
   "scripts": {
     "dev": "nodemon --exec npx ts-node --files src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.ts"
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/src/index.js"
   },
   "dependencies": {
     "@prisma/client": "^5.9.1",

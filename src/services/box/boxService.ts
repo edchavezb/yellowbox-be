@@ -273,30 +273,46 @@ const boxService = {
     return result._max.position;
   },
   async createBox(userBox: BoxCreateDTO) {
-    const { creatorId, ...boxData } = userBox
-    const newBox = await prisma.box.create({
-      data: {
-        ...boxData,
-        creator: { connect: { userId: creatorId } },
-        sectionSettings: {
-          createMany: {
-            data: [
-              { type: "artists" },
-              { type: "albums" },
-              { type: "tracks" },
-              { type: "playlists" }
-            ]
+    try {
+      const { creatorId, ...boxData } = userBox;
+
+      // Verify that the creatorId exists in the User table
+      const userExists = await prisma.user.findUnique({
+        where: { userId: creatorId },
+      });
+
+      if (!userExists) {
+        throw new Error(`User with id ${creatorId} does not exist`);
+      }
+
+      // Create the new box
+      const newBox = await prisma.box.create({
+        data: {
+          ...boxData,
+          creator: { connect: { userId: creatorId } },
+          sectionSettings: {
+            createMany: {
+              data: [
+                { type: "artists" },
+                { type: "albums" },
+                { type: "tracks" },
+                { type: "playlists" }
+              ]
+            }
           }
         }
-      }
-    });
+      });
 
-    return {
-      boxId: newBox.boxId,
-      name: newBox.name,
-      position: newBox.position,
-      folderId: newBox.folderId,
-      folderPosition: newBox.folderPosition
+      return {
+        boxId: newBox.boxId,
+        name: newBox.name,
+        position: newBox.position,
+        folderId: newBox.folderId,
+        folderPosition: newBox.folderPosition
+      };
+    } catch (error) {
+      console.error("Failed to create box:", error);
+      throw error;
     }
   },
   async deleteBox(boxId: string) {

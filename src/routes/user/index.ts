@@ -1,6 +1,6 @@
 import { Router } from "express";
 import authenticate from "../../middleware/autenticate"
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { BoxCreateDTO, SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
 import userService from "../../services/user/userService";
 import boxService from "../../services/box/boxService";
@@ -11,6 +11,7 @@ import playlistService from "../../services/boxItem/playlistService";
 import trackService from "../../services/boxItem/trackService";
 import axios from "axios";
 
+const prisma = new PrismaClient();
 const routes = Router();
 
 // Create a new box with the same contents but a different userId
@@ -28,7 +29,7 @@ routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
     const userBox: BoxCreateDTO = {
         name: boxData.name,
         description: boxData.description,
-        isPublic: boxData.public,
+        isPublic: boxData.public || true,
         creatorId: userId,
         position: (highestUserBoxPosition ?? 0) + 1
     };
@@ -130,6 +131,75 @@ routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
       const maxPlaylistPosition = await playlistService.getMaxBoxPlaylistPosition(newBox.boxId);
       const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
       await playlistService.createBoxPlaylist(newBox.boxId, newPlaylist.spotifyId, newPlaylistPosition);
+    }
+
+     // Process notes and add them to the corresponding box items
+     for (const note of boxData.notes) {
+      const { itemId, noteText } = note;
+
+      // Check if the itemId exists in the artists table
+      const boxArtist = await prisma.boxArtist.findFirst({
+        where: {
+          artistId: itemId,
+          boxId: newBox.boxId
+        }
+      });
+
+      if (boxArtist) {
+        await prisma.boxArtist.update({
+          where: { boxArtistId: boxArtist.boxArtistId },
+          data: { note: noteText }
+        });
+        continue;
+      }
+
+      // Check if the itemId exists in the albums table
+      const boxAlbum = await prisma.boxAlbum.findFirst({
+        where: {
+          albumId: itemId,
+          boxId: newBox.boxId
+        }
+      });
+
+      if (boxAlbum) {
+        await prisma.boxAlbum.update({
+          where: { boxAlbumId: boxAlbum.boxAlbumId },
+          data: { note: noteText }
+        });
+        continue;
+      }
+
+      // Check if the itemId exists in the tracks table
+      const boxTrack = await prisma.boxTrack.findFirst({
+        where: {
+          trackId: itemId,
+          boxId: newBox.boxId
+        }
+      });
+
+      if (boxTrack) {
+        await prisma.boxTrack.update({
+          where: { boxTrackId: boxTrack.boxTrackId },
+          data: { note: noteText }
+        });
+        continue;
+      }
+
+      // Check if the itemId exists in the playlists table
+      const boxPlaylist = await prisma.boxPlaylist.findFirst({
+        where: {
+          playlistId: itemId,
+          boxId: newBox.boxId
+        }
+      });
+
+      if (boxPlaylist) {
+        await prisma.boxPlaylist.update({
+          where: { boxPlaylistId: boxPlaylist.boxPlaylistId },
+          data: { note: noteText }
+        });
+        continue;
+      }
     }
 
     return res.status(201).json("Box migrated successfully.");

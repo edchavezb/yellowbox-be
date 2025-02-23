@@ -17,7 +17,7 @@ const trackService = {
         albumReleaseDate,
         albumImages,
         duration,
-        explicit,
+        explicit: Boolean(explicit),
         type
       }
     });

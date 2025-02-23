@@ -12,9 +12,9 @@ const routes = Router();
 routes.put("/artists/:artistId/images", async (req, res) => {
   try {
     const { artistId } = req.params;
-    const { images } = req.body;
+    const { updatedImages } = req.body;
 
-    const updatedArtist = await artistService.updateArtistImages(artistId, images);
+    const updatedArtist = await artistService.updateArtistImages(artistId, updatedImages);
 
     return res.status(200).json({ updatedArtist });
   } catch (error) {
@@ -27,9 +27,9 @@ routes.put("/artists/:artistId/images", async (req, res) => {
 routes.put("/albums/:albumId/images", async (req, res) => {
   try {
     const { albumId } = req.params;
-    const { images } = req.body;
+    const { updatedImages } = req.body;
 
-    const updatedAlbum = await albumService.updateAlbumImages(albumId, images);
+    const updatedAlbum = await albumService.updateAlbumImages(albumId, updatedImages);
 
     return res.status(200).json({ updatedAlbum });
   } catch (error) {
@@ -42,9 +42,9 @@ routes.put("/albums/:albumId/images", async (req, res) => {
 routes.put("/tracks/:trackId/images", async (req, res) => {
   try {
     const { trackId } = req.params;
-    const { images } = req.body;
+    const { updatedImages } = req.body;
 
-    const updatedTrack = await trackService.updateTrackImages(trackId, images);
+    const updatedTrack = await trackService.updateTrackImages(trackId, updatedImages);
 
     return res.status(200).json({ updatedTrack });
   } catch (error) {
@@ -57,9 +57,9 @@ routes.put("/tracks/:trackId/images", async (req, res) => {
 routes.put("/playlists/:playlistId/images", async (req, res) => {
   try {
     const { playlistId } = req.params;
-    const { images } = req.body;
+    const { updatedImages } = req.body;
 
-    const updatedPlaylist = await playlistService.updatePlaylistImages(playlistId, images);
+    const updatedPlaylist = await playlistService.updatePlaylistImages(playlistId, updatedImages);
 
     return res.status(200).json({ updatedPlaylist });
   } catch (error) {

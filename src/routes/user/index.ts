@@ -1,12 +1,143 @@
 import { Router } from "express";
 import authenticate from "../../middleware/autenticate"
 import { Prisma } from "@prisma/client";
-import { SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
+import { BoxCreateDTO, SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
 import userService from "../../services/user/userService";
 import boxService from "../../services/box/boxService";
 import folderService from "../../services/folder/folderService";
+import albumService from "../../services/boxItem/albumService";
+import artistService from "../../services/boxItem/artistService";
+import playlistService from "../../services/boxItem/playlistService";
+import trackService from "../../services/boxItem/trackService";
+import axios from "axios";
 
 const routes = Router();
+
+// Create a new box with the same contents but a different userId
+routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
+  try {
+    const { userId, boxId } = req.params;
+
+    // Fetch the box data from the external endpoint
+    const response = await axios.get(`https://expressjs-mongoose-production-156f.up.railway.app/api/boxes/?boxId=${boxId}`);
+    const boxData = response.data.boxData;
+
+    const highestUserBoxPosition = await boxService.getMaxPositionDashboard(userId);
+
+    // Create the new box
+    const userBox: BoxCreateDTO = {
+        name: boxData.name,
+        description: boxData.description,
+        isPublic: boxData.public,
+        creatorId: userId,
+        position: (highestUserBoxPosition ?? 0) + 1
+    };
+    const newBox = await boxService.createBox(userBox);
+
+    // Add artists to the new box
+    for (const artist of boxData.artists) {
+      const artistData = {
+        spotifyId: artist.id,
+        name: artist.name,
+        images: artist.images.map((image: any) => ({
+          width: image.width,
+          height: image.height,
+          url: image.url
+        })),
+        genres: artist.genres,
+        type: artist.type,
+      };
+
+      const newArtist = await artistService.createArtist(artistData);
+      const maxArtistPosition = await artistService.getMaxBoxArtistPosition(newBox.boxId);
+      const newArtistPosition = (maxArtistPosition || 0) + 1;
+      await artistService.createBoxArtist(newBox.boxId, newArtist.spotifyId, newArtistPosition);
+    }
+
+    // Add albums to the new box
+    for (const album of boxData.albums) {
+      const albumData = {
+        spotifyId: album.id,
+        name: album.name,
+        images: album.images.map((image: any) => ({
+          width: image.width,
+          height: image.height,
+          url: image.url
+        })),
+        releaseDate: album.release_date,
+        totalTracks: album.total_tracks,
+        uri: album.uri,
+        artists: album.artists.map((artist: any) => ({
+          spotifyId: artist.id,
+          name: artist.name
+        })),
+        type: album.type,
+        albumType: album.album_type
+      };
+
+      const newAlbum = await albumService.createAlbum(albumData);
+      const maxAlbumPosition = await albumService.getMaxBoxAlbumPosition(newBox.boxId);
+      const newAlbumPosition = (maxAlbumPosition || 0) + 1;
+      await albumService.createBoxAlbum(newBox.boxId, newAlbum.spotifyId, newAlbumPosition);
+    }
+
+    // Add tracks to the new box
+    for (const track of boxData.tracks) {
+      const trackData = {
+        spotifyId: track.id,
+        name: track.name,
+        artists: track.artists.map((artist: any) => ({
+          spotifyId: artist.id,
+          name: artist.name
+        })),
+        albumName: track.album.name,
+        albumId: track.album.id,
+        albumReleaseDate: track.album.release_date,
+        albumImages: track.album.images.map((image: any) => ({
+          width: image.width,
+          height: image.height,
+          url: image.url
+        })),
+        duration: track.duration_ms,
+        explicit: track.explicit,
+        type: track.type
+      };
+
+      const newTrack = await trackService.createTrack(trackData);
+      const maxTrackPosition = await trackService.getMaxBoxTrackPosition(newBox.boxId);
+      const newTrackPosition = (maxTrackPosition || 0) + 1;
+      await trackService.createBoxTrack(newBox.boxId, newTrack.spotifyId, newTrackPosition);
+    }
+
+    // Add playlists to the new box
+    for (const playlist of boxData.playlists) {
+      const playlistData = {
+        spotifyId: playlist.id,
+        name: playlist.name,
+        description: playlist.description,
+        ownerDisplayName: playlist.owner.display_name,
+        ownerId: playlist.owner.id,
+        images: playlist.images.map((image: any) => ({
+          width: image.width,
+          height: image.height,
+          url: image.url
+        })),
+        type: playlist.type,
+        totalTracks: playlist.tracks.total,
+      };
+
+      const newPlaylist = await playlistService.createPlaylist(playlistData);
+      const maxPlaylistPosition = await playlistService.getMaxBoxPlaylistPosition(newBox.boxId);
+      const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
+      await playlistService.createBoxPlaylist(newBox.boxId, newPlaylist.spotifyId, newPlaylistPosition);
+    }
+
+    return res.status(201).json("Box migrated successfully.");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
 
 // TESTED
 // Get the authenticated user's data

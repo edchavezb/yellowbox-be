@@ -10,6 +10,7 @@ import artistService from "../../services/boxItem/artistService";
 import playlistService from "../../services/boxItem/playlistService";
 import trackService from "../../services/boxItem/trackService";
 import axios from "axios";
+import subsectionService from "../../services/box/subsectionService";
 
 const prisma = new PrismaClient();
 const routes = Router();
@@ -27,11 +28,11 @@ routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
 
     // Create the new box
     const userBox: BoxCreateDTO = {
-        name: boxData.name,
-        description: boxData.description,
-        isPublic: boxData.public || true,
-        creatorId: userId,
-        position: (highestUserBoxPosition ?? 0) + 1
+      name: boxData.name,
+      description: boxData.description,
+      isPublic: boxData.public || true,
+      creatorId: userId,
+      position: (highestUserBoxPosition ?? 0) + 1
     };
     const newBox = await boxService.createBox(userBox);
 
@@ -133,8 +134,8 @@ routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
       await playlistService.createBoxPlaylist(newBox.boxId, newPlaylist.spotifyId, newPlaylistPosition);
     }
 
-     // Process notes and add them to the corresponding box items
-     for (const note of boxData.notes) {
+    // Process notes and add them to the corresponding box items
+    for (const note of boxData.notes) {
       const { itemId, noteText } = note;
 
       // Check if the itemId exists in the artists table
@@ -209,6 +210,82 @@ routes.post("/:userId/migrate-box/:boxId", async (req, res) => {
   }
 });
 
+routes.post("/:userId/migrate-subsections/:boxId", async (req, res) => {
+  try {
+    const { boxId } = req.params;
+    const { destinationBoxId } = req.body;
+
+    // Fetch the box data from the external endpoint
+    const response = await axios.get(`https://expressjs-mongoose-production-156f.up.railway.app/api/boxes/?boxId=${boxId}`);
+    const boxData = response.data.boxData;
+    
+    // Process subsections and add them to the new box
+    boxData.subSections.forEach(async (subsection: any, index: number) => {
+      const { type, name, items } = subsection;
+
+      // Create the new subsection
+      const newSubsection = await subsectionService.createSubsection(
+        destinationBoxId,
+        {
+          itemType: type,
+          name,
+          position: index
+        }
+      );
+
+      // Add items to the new subsection
+      items.forEach(async (item: { id: string }, index: number) => {
+        const { id } = item;
+        if (type === "artists") {
+          const boxArtist = await prisma.boxArtist.findFirst({
+            where: {
+              artistId: id,
+              boxId: destinationBoxId
+            }
+          });
+          if (boxArtist) {
+            await artistService.createBoxSubsectionArtist(newSubsection.subsectionId, boxArtist.boxArtistId, index);
+          }
+        } else if (type === "albums") {
+          const boxAlbum = await prisma.boxAlbum.findFirst({
+            where: {
+              albumId: id,
+              boxId: destinationBoxId
+            }
+          });
+          if (boxAlbum) {
+            await albumService.createBoxSubsectionAlbum(newSubsection.subsectionId, boxAlbum.boxAlbumId, index);
+          }
+        } else if (type === "tracks") {
+          const boxTrack = await prisma.boxTrack.findFirst({
+            where: {
+              trackId: id,
+              boxId: destinationBoxId
+            }
+          });
+          if (boxTrack) {
+            await trackService.createBoxSubsectionTrack(newSubsection.subsectionId, boxTrack.boxTrackId, index);
+          }
+        } else if (type === "playlists") {
+          const boxPlaylist = await prisma.boxPlaylist.findFirst({
+            where: {
+              playlistId: id,
+              boxId: destinationBoxId
+            }
+          });
+          if (boxPlaylist) {
+            await playlistService.createBoxSubsectionPlaylist(newSubsection.subsectionId, boxPlaylist.boxPlaylistId, index);
+          }
+        }
+      });
+    });
+    return res.status(201).json("Subsections migrated successfully.");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // TESTED
 // Get the authenticated user's data
 routes.get("/me", authenticate, async (req, res) => {
@@ -262,7 +339,7 @@ routes.delete("/", authenticate, async (req, res) => {
     const userId = req.user.userId
     await userService.deleteUser(userId);
 
-    return res.status(201).json({message: "User deleted successfully."});
+    return res.status(201).json({ message: "User deleted successfully." });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -307,7 +384,7 @@ routes.put("/:userId/verify-email", async (req, res) => {
     const { userId } = req.params;
     const updatedUserAccountData = await userService.verifyUserEmail(userId);
 
-    return res.status(201).json({userAccountData: updatedUserAccountData});
+    return res.status(201).json({ userAccountData: updatedUserAccountData });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -321,7 +398,7 @@ routes.put("/:userId/toggle-tutorial", async (req, res) => {
     const { userId } = req.params;
     const updatedUserAccountData = await userService.toggleTutorialPreference(userId);
 
-    return res.status(201).json({userAccountData: updatedUserAccountData});
+    return res.status(201).json({ userAccountData: updatedUserAccountData });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -353,11 +430,11 @@ routes.delete("/:userId/unlink-account/spotify", async (req, res) => {
     return res.status(200).json({ message: "Spotify account unlinked successfully." });
   } catch (error) {
     console.error(error);
-    
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') { // Record to delete does not exist
       return res.status(404).json({ error: "No linked Spotify account found for this user." });
     }
-    
+
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });
@@ -368,7 +445,7 @@ routes.get("/:userId/boxes", async (req, res) => {
   try {
     const { userId } = req.params;
     const boxes = await boxService.getUserBoxes(userId);
-  
+
     return res.json(boxes);
   } catch (error) {
     console.error(error);
@@ -434,3 +511,7 @@ routes.put("/:userId/boxes/:boxId/reorder", async (req, res) => {
 });
 
 export default routes;
+function createBoxSubsectionArtist(subsectionId: string, id: any, index: any) {
+  throw new Error("Function not implemented.");
+}
+

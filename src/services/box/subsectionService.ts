@@ -12,7 +12,7 @@ const subsectionService = {
     },
     async createSubsection(boxId: string, subSectionData: any){
       const {itemType, name, position} = subSectionData;
-      await prisma.boxSubsection.create({
+      return await prisma.boxSubsection.create({
         data: {
           boxId,
           itemType,

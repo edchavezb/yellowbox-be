@@ -179,9 +179,6 @@ routes.put("/:boxId/subsections/:subsectionId/reorder", async (req, res) => {
     // Update the position of the target subsection
     await subsectionService.updateSubsectionPosition(subsectionId, newPosition);
 
-    // Update the positions of subsequent subsections in the same box
-    await subsectionService.incrementSubsequentSubsectionPositions(boxId, subsectionId, newPosition);
-
     return res.status(200).json({ message: "Subsection reordered successfully" });
   } catch (error) {
     console.error(error);

@@ -65,7 +65,7 @@ model Box {
   boxId           String               @id @default(uuid()) @db.Uuid
   creatorId       String?              @db.Uuid
   folderId        String?              @db.Uuid
-  position        Int?
+  position        Int
   folderPosition  Int?
   name            String
   description     String

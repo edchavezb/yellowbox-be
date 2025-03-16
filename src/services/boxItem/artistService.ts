@@ -123,36 +123,80 @@ const artistService = {
     return result._max.position;
   },
   async updateBoxArtistPosition(boxArtistId: string, newPosition: number) {
-    await prisma.boxArtist.update({
-      where: { boxArtistId },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentBoxArtistPositions(boxId: string, boxArtistId: string, position: number) {
-    await prisma.boxArtist.updateMany({
-      where: {
-        boxId,
-        boxArtistId: { not: boxArtistId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentBoxArtist = await prisma.boxArtist.findUnique({
+          where: { boxArtistId },
+      });
+  
+      if (!currentBoxArtist) {
+          throw new Error("Box artist not found");
+      }
+  
+      const currentPosition = currentBoxArtist.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxArtist.updateMany({
+              where: {
+                  boxId: currentBoxArtist.boxId,
+                  boxArtistId: { not: boxArtistId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxArtist.updateMany({
+              where: {
+                  boxId: currentBoxArtist.boxId,
+                  boxArtistId: { not: boxArtistId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxArtist.update({
+          where: { boxArtistId },
+          data: { position: newPosition },
+      });
   },
   async updateSubsectionArtistPosition(subsectionId: string, boxArtistId: string, newPosition: number) {
-    await prisma.boxSubsectionArtist.update({
-      where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentSubsectionArtistPositions(subsectionId: string, boxArtistId: string, position: number) {
-    await prisma.boxSubsectionArtist.updateMany({
-      where: {
-        subsectionId,
-        boxArtistId: { not: boxArtistId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentSubsectionArtist = await prisma.boxSubsectionArtist.findUnique({
+          where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
+      });
+  
+      if (!currentSubsectionArtist) {
+          throw new Error("Subsection artist not found");
+      }
+  
+      const currentPosition = currentSubsectionArtist.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxSubsectionArtist.updateMany({
+              where: {
+                  subsectionId,
+                  boxArtistId: { not: boxArtistId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxSubsectionArtist.updateMany({
+              where: {
+                  subsectionId,
+                  boxArtistId: { not: boxArtistId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxSubsectionArtist.update({
+          where: { boxArtistId_subsectionId: { subsectionId, boxArtistId } },
+          data: { position: newPosition },
+      });
   },
   async updateBoxArtistNote(boxArtistId: string, note: string) {
     const updatedBoxArtist = await prisma.boxArtist.update({

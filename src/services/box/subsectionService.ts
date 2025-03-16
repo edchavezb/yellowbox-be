@@ -38,21 +38,43 @@ const subsectionService = {
         }
       });
     },
-    async updateSubsectionPosition(subsectionId: string, newPosition: number){
-      await prisma.boxSubsection.update({
-        where: { subsectionId: subsectionId },
-        data: { position: newPosition }
-      });
-    },
-    async incrementSubsequentSubsectionPositions(boxId: string, subsectionId: string, startIndex: number){
-      await prisma.boxSubsection.updateMany({
-        where: {
-          boxId: boxId,
-          subsectionId: { not: subsectionId }, // Exclude the target subsection
-          position: { gte: startIndex } // Select subsections with positions greater than or equal to the target position
-        },
-        data: { position: { increment: 1 } } // Increment the position of selected subsections by 1
-      });
+    async updateSubsectionPosition(subsectionId: string, newPosition: number) {
+        const currentSubsection = await prisma.boxSubsection.findUnique({
+            where: { subsectionId },
+        });
+    
+        if (!currentSubsection) {
+            throw new Error("Subsection not found");
+        }
+    
+        const currentPosition = currentSubsection.position;
+    
+        if (newPosition < currentPosition) {
+            // Moving to a lower position
+            await prisma.boxSubsection.updateMany({
+                where: {
+                    boxId: currentSubsection.boxId,
+                    subsectionId: { not: subsectionId },
+                    position: { gte: newPosition, lt: currentPosition },
+                },
+                data: { position: { increment: 1 } },
+            });
+        } else if (newPosition > currentPosition) {
+            // Moving to a higher position
+            await prisma.boxSubsection.updateMany({
+                where: {
+                    boxId: currentSubsection.boxId,
+                    subsectionId: { not: subsectionId },
+                    position: { gt: currentPosition, lte: newPosition },
+                },
+                data: { position: { decrement: 1 } },
+            });
+        }
+    
+        await prisma.boxSubsection.update({
+            where: { subsectionId },
+            data: { position: newPosition },
+        });
     },
     async getUpdatedSubsections(boxId: string) {
       const updatedSubsections = await prisma.boxSubsection.findMany({

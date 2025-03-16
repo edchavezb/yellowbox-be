@@ -131,37 +131,81 @@ const playlistService = {
 
     return result._max.position;
   },
-  async updateBoxPlaylistPosition(boxPlaylistId: string, newPosition: number) {
-    await prisma.boxPlaylist.update({
-      where: { boxPlaylistId },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentBoxPlaylistPositions(boxId: string, boxPlaylistId: string, position: number) {
-    await prisma.boxPlaylist.updateMany({
-      where: {
-        boxId,
-        boxPlaylistId: { not: boxPlaylistId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+   async updateBoxPlaylistPosition(boxPlaylistId: string, newPosition: number) {
+      const currentBoxPlaylist = await prisma.boxPlaylist.findUnique({
+          where: { boxPlaylistId },
+      });
+  
+      if (!currentBoxPlaylist) {
+          throw new Error("Box playlist not found");
+      }
+  
+      const currentPosition = currentBoxPlaylist.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxPlaylist.updateMany({
+              where: {
+                  boxId: currentBoxPlaylist.boxId,
+                  boxPlaylistId: { not: boxPlaylistId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxPlaylist.updateMany({
+              where: {
+                  boxId: currentBoxPlaylist.boxId,
+                  boxPlaylistId: { not: boxPlaylistId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxPlaylist.update({
+          where: { boxPlaylistId },
+          data: { position: newPosition },
+      });
   },
   async updateSubsectionPlaylistPosition(subsectionId: string, boxPlaylistId: string, newPosition: number) {
-    await prisma.boxSubsectionPlaylist.update({
-      where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentSubsectionPlaylistPositions(subsectionId: string, boxPlaylistId: string, position: number) {
-    await prisma.boxSubsectionPlaylist.updateMany({
-      where: {
-        subsectionId,
-        boxPlaylistId: { not: boxPlaylistId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentSubsectionPlaylist = await prisma.boxSubsectionPlaylist.findUnique({
+          where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
+      });
+  
+      if (!currentSubsectionPlaylist) {
+          throw new Error("Subsection playlist not found");
+      }
+  
+      const currentPosition = currentSubsectionPlaylist.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxSubsectionPlaylist.updateMany({
+              where: {
+                  subsectionId,
+                  boxPlaylistId: { not: boxPlaylistId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxSubsectionPlaylist.updateMany({
+              where: {
+                  subsectionId,
+                  boxPlaylistId: { not: boxPlaylistId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxSubsectionPlaylist.update({
+          where: { boxPlaylistId_subsectionId: { subsectionId, boxPlaylistId } },
+          data: { position: newPosition },
+      });
   },
   async updateBoxPlaylistNote(boxPlaylistId: string, note: string) {
     const updatedBoxPlaylist = await prisma.boxPlaylist.update({

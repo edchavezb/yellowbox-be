@@ -104,9 +104,6 @@ routes.put("/:folderId/boxes/:boxId/reorder", async (req, res) => {
     // Update the position of the target box
     await boxService.updateFolderBoxPosition(boxId, newPosition);
 
-    // Update the positions of other boxes in the same folder
-    await boxService.incrementSubsequentFolderBoxPositions(boxId, folderId, newPosition);
-
     return res.status(200).json({ message: "Box reordered successfully" });
   } catch (error) {
     console.error(error);

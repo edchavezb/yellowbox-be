@@ -79,6 +79,18 @@ routes.post("/:boxId/subsections/:subsectionId/artists", async (req, res) => {
     const { boxId, subsectionId } = req.params;
     const { boxArtistId } = req.body;
 
+    // Check if the artist is a valid boxArtist
+    const artistInBox = await artistService.getArtistInBox(boxArtistId);
+    if (!artistInBox) {
+      return res.status(404).json({ error: "Artist not found" });
+    }
+
+    // Check if the artist is already in the subsection
+    const artistInSubsection = await artistService.checkArtistInSubsection(subsectionId, boxArtistId);
+    if (artistInSubsection) {
+      return res.status(400).json({ error: "Artist already in subsection" });
+    }
+
     const boxArtist = await artistService.getArtistInBox(boxArtistId);
     const maxArtistPosition = await artistService.getMaxSubsectionArtistPosition(subsectionId);
     const newArtistPosition = (maxArtistPosition || 0) + 1;
@@ -110,6 +122,49 @@ routes.put("/:boxId/subsections/:subsectionId/artists/:boxArtistId/reorder", asy
     await artistService.updateSubsectionArtistPosition(subsectionId, boxArtistId, newPosition);
 
     return res.status(200).json({ message: "Artist reordered successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Move an artist to a different subsection
+routes.put("/:boxId/subsections/:subsectionId/artists/:boxArtistId/move", async (req, res) => {
+  try {
+    const { boxId, boxArtistId, subsectionId } = req.params;
+    const { destinationSubsectionId } = req.body;
+
+    // Check if the artist is a valid boxArtist
+    const artistInBox = await artistService.getArtistInBox(boxArtistId);
+    if (!artistInBox) {
+      return res.status(404).json({ error: "Artist not found" });
+    }
+
+    // Check if the artist is in the current subsection
+    const artistInSubsection = await artistService.checkArtistInSubsection(subsectionId, boxArtistId);
+    if (!artistInSubsection) {
+      return res.status(404).json({ error: "Artist not found in the current subsection" });
+    }
+
+    // Check if the artist is already in the destination subsection
+    const artistInDestinationSubsection = await artistService.checkArtistInSubsection(destinationSubsectionId, boxArtistId);
+    if (artistInDestinationSubsection) {
+      return res.status(400).json({ error: "Artist already in the destination subsection" });
+    }
+
+    // Remove the artist from the current subsection
+    await artistService.deleteBoxSubsectionArtist(subsectionId, boxArtistId);
+
+    // Get the max position in the destination subsection
+    const maxArtistPosition = await artistService.getMaxSubsectionArtistPosition(destinationSubsectionId);
+    const newArtistPosition = (maxArtistPosition || 0) + 1;
+
+    // Add the artist to the destination subsection
+    await artistService.createBoxSubsectionArtist(destinationSubsectionId, boxArtistId, newArtistPosition);
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(200).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

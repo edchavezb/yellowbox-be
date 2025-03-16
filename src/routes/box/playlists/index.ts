@@ -79,6 +79,18 @@ routes.post("/:boxId/subsections/:subsectionId/playlists", async (req, res) => {
     const { boxId, subsectionId } = req.params;
     const { boxPlaylistId } = req.body;
 
+    // Check if the playlist is a valid boxPlaylist
+    const playlistInBox = await playlistService.getPlaylistInBox(boxPlaylistId);
+    if (!playlistInBox) {
+      return res.status(404).json({ error: "Playlist not found" });
+    }
+
+    // Check if the playlist is already in the subsection
+    const playlistInSubsection = await playlistService.checkPlaylistInSubsection(subsectionId, boxPlaylistId);
+    if (playlistInSubsection) {
+      return res.status(400).json({ error: "Playlist already in subsection" });
+    }
+
     const boxPlaylist = await playlistService.getPlaylistInBox(boxPlaylistId);
     const maxPlaylistPosition = await playlistService.getMaxSubsectionPlaylistPosition(subsectionId);
     const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
@@ -116,10 +128,60 @@ routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/reorder",
   }
 });
 
+// Move a playlist to a different subsection
+routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/move", async (req, res) => {
+  try {
+    const { boxId, boxPlaylistId, subsectionId } = req.params;
+    const { destinationSubsectionId } = req.body;
+
+    // Check if the playlist is a valid boxPlaylist
+    const playlistInBox = await playlistService.getPlaylistInBox(boxPlaylistId);
+    if (!playlistInBox) {
+      return res.status(404).json({ error: "Playlist not found" });
+    }
+
+    // Check if the playlist is in the current subsection
+    const playlistInSubsection = await playlistService.checkPlaylistInSubsection(subsectionId, boxPlaylistId);
+    if (!playlistInSubsection) {
+      return res.status(404).json({ error: "Playlist not found in the current subsection" });
+    }
+
+    // Check if the playlist is already in the destination subsection
+    const playlistInDestinationSubsection = await playlistService.checkPlaylistInSubsection(destinationSubsectionId, boxPlaylistId);
+    if (playlistInDestinationSubsection) {
+      return res.status(400).json({ error: "Playlist already in the destination subsection" });
+    }
+
+    // Remove the playlist from the current subsection
+    await playlistService.deleteBoxSubsectionPlaylist(subsectionId, boxPlaylistId);
+
+    // Get the max position in the destination subsection
+    const maxPlaylistPosition = await playlistService.getMaxSubsectionPlaylistPosition(destinationSubsectionId);
+    const newPlaylistPosition = (maxPlaylistPosition || 0) + 1;
+
+    // Add the playlist to the destination subsection
+    await playlistService.createBoxSubsectionPlaylist(destinationSubsectionId, boxPlaylistId, newPlaylistPosition);
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // Remove a playlist from a subsection
 routes.delete("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId", async (req, res) => {
   try {
     const { boxId, boxPlaylistId, subsectionId } = req.params;
+
+    // Check if the playlist is already in the subsection
+    const playlistInSubsection = await playlistService.checkPlaylistInSubsection(subsectionId, boxPlaylistId);
+    if (!playlistInSubsection) {
+      return res.status(400).json({ error: "Playlist not in subsection" });
+    }
+
     await playlistService.deleteBoxSubsectionPlaylist(subsectionId, boxPlaylistId);
     const updatedBox = await boxService.getBoxById(boxId);
 

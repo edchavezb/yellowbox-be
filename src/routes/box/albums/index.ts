@@ -79,6 +79,18 @@ routes.post("/:boxId/subsections/:subsectionId/albums", async (req, res) => {
     const { boxId, subsectionId } = req.params;
     const { boxAlbumId } = req.body;
 
+    // Check if the album is a valid boxAlbum
+    const albumInBox = await albumService.getAlbumInBox(boxAlbumId);
+    if (!albumInBox) {
+      return res.status(404).json({ error: "Album not found" });
+    }
+
+    // Check if the album is already in the subsection
+    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    if (albumInSubsection) {
+      return res.status(400).json({ error: "Album already in subsection" });
+    }
+
     const boxAlbum = await albumService.getAlbumInBox(boxAlbumId);
     const maxAlbumPosition = await albumService.getMaxSubsectionAlbumPosition(subsectionId);
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
@@ -110,6 +122,49 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async
     await albumService.updateSubsectionAlbumPosition(subsectionId, boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Move an album to a different subsection
+routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/move", async (req, res) => {
+  try {
+    const { boxId, boxAlbumId, subsectionId } = req.params;
+    const { destinationSubsectionId } = req.body;
+
+    // Check if the album is a valid boxAlbum
+    const albumInBox = await albumService.getAlbumInBox(boxAlbumId);
+    if (!albumInBox) {
+      return res.status(404).json({ error: "Album not found" });
+    }
+
+    // Check if the album is in the current subsection
+    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    if (!albumInSubsection) {
+      return res.status(404).json({ error: "Album not found in the current subsection" });
+    }
+
+    // Check if the album is already in the destination subsection
+    const albumInDestinationSubsection = await albumService.checkAlbumInSubsection(destinationSubsectionId, boxAlbumId);
+    if (albumInDestinationSubsection) {
+      return res.status(400).json({ error: "Album already in the destination subsection" });
+    }
+
+    // Remove the album from the current subsection
+    await albumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
+
+    // Get the max position in the destination subsection
+    const maxAlbumPosition = await albumService.getMaxSubsectionAlbumPosition(destinationSubsectionId);
+    const newAlbumPosition = (maxAlbumPosition || 0) + 1;
+
+    // Add the album to the destination subsection
+    await albumService.createBoxSubsectionAlbum(destinationSubsectionId, boxAlbumId, newAlbumPosition);
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(200).json(updatedBox);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

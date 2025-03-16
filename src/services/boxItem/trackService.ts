@@ -133,37 +133,81 @@ const trackService = {
   
     return result._max.position;
   },
-  async updateBoxTrackPosition(boxTrackId: string, newPosition: number) {
-    await prisma.boxTrack.update({
-      where: { boxTrackId },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentBoxTrackPositions(boxId: string, boxTrackId: string, position: number) {
-    await prisma.boxTrack.updateMany({
-      where: {
-        boxId,
-        boxTrackId: { not: boxTrackId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+   async updateBoxTrackPosition(boxTrackId: string, newPosition: number) {
+      const currentBoxTrack = await prisma.boxTrack.findUnique({
+          where: { boxTrackId },
+      });
+  
+      if (!currentBoxTrack) {
+          throw new Error("Box track not found");
+      }
+  
+      const currentPosition = currentBoxTrack.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxTrack.updateMany({
+              where: {
+                  boxId: currentBoxTrack.boxId,
+                  boxTrackId: { not: boxTrackId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxTrack.updateMany({
+              where: {
+                  boxId: currentBoxTrack.boxId,
+                  boxTrackId: { not: boxTrackId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxTrack.update({
+          where: { boxTrackId },
+          data: { position: newPosition },
+      });
   },
   async updateSubsectionTrackPosition(subsectionId: string, boxTrackId: string, newPosition: number) {
-    await prisma.boxSubsectionTrack.update({
-      where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentSubsectionTrackPositions(subsectionId: string, boxTrackId: string, position: number) {
-    await prisma.boxSubsectionTrack.updateMany({
-      where: {
-        subsectionId,
-        boxTrackId: { not: boxTrackId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentSubsectionTrack = await prisma.boxSubsectionTrack.findUnique({
+          where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
+      });
+  
+      if (!currentSubsectionTrack) {
+          throw new Error("Subsection track not found");
+      }
+  
+      const currentPosition = currentSubsectionTrack.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxSubsectionTrack.updateMany({
+              where: {
+                  subsectionId,
+                  boxTrackId: { not: boxTrackId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxSubsectionTrack.updateMany({
+              where: {
+                  subsectionId,
+                  boxTrackId: { not: boxTrackId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxSubsectionTrack.update({
+          where: { boxTrackId_subsectionId: { subsectionId, boxTrackId } },
+          data: { position: newPosition },
+      });
   },
   async updateBoxTrackNote(boxTrackId: string, note: string) {
     const updatedBoxTrack = await prisma.boxTrack.update({

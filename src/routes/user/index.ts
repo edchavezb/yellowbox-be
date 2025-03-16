@@ -499,9 +499,6 @@ routes.put("/:userId/boxes/:boxId/reorder", async (req, res) => {
     // Update the position of the box to be reordered
     await boxService.updateDashboardBoxPosition(boxId, newPosition);
 
-    // Increment the position of other boxes with the same creatorId
-    await boxService.incrementSubsequentDashboardBoxPositions(userId, boxId, newPosition);
-
     // Return the updated box
     return res.status(200).json({ message: "Box reordered successfully" });
   } catch (error) {
@@ -511,7 +508,3 @@ routes.put("/:userId/boxes/:boxId/reorder", async (req, res) => {
 });
 
 export default routes;
-function createBoxSubsectionArtist(subsectionId: string, id: any, index: any) {
-  throw new Error("Function not implemented.");
-}
-

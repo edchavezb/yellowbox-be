@@ -42,7 +42,6 @@ routes.put("/:boxId/playlists/:boxPlaylistId/reorder", async (req, res) => {
 
     const newPosition = destinationPlaylist.position;
     await playlistService.updateBoxPlaylistPosition(targetPlaylist.boxPlaylistId, newPosition);
-    await playlistService.updateSubsequentBoxPlaylistPositions(boxId, boxPlaylistId, newPosition);
 
     return res.status(200).json({ message: "Playlist reordered successfully" });
   } catch (error) {
@@ -109,7 +108,6 @@ routes.put("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId/reorder",
 
     const newPosition = destinationPlaylist.position;
     await playlistService.updateSubsectionPlaylistPosition(subsectionId, boxPlaylistId, newPosition);
-    await playlistService.updateSubsequentSubsectionPlaylistPositions(subsectionId, boxPlaylistId, newPosition);
 
     return res.status(200).json({ message: "Playlist reordered successfully" });
   } catch (error) {

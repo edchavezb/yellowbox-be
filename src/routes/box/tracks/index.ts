@@ -42,7 +42,6 @@ routes.put("/:boxId/tracks/:boxTrackId/reorder", async (req, res) => {
 
     const newPosition = destinationAlbum.position
     await trackService.updateBoxTrackPosition(targetTrack.boxTrackId, newPosition);
-    await trackService.updateSubsequentBoxTrackPositions(boxId, boxTrackId, newPosition);
 
     return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {
@@ -109,7 +108,6 @@ routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/reorder", async
 
     const newPosition = destinationTrack.position
     await trackService.updateSubsectionTrackPosition(subsectionId, boxTrackId, newPosition);
-    await trackService.updateSubsequentSubsectionTrackPositions(subsectionId, boxTrackId, newPosition);
 
     return res.status(200).json({ message: "Track reordered successfully" });
   } catch (error) {

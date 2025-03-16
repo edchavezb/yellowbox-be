@@ -96,6 +96,9 @@ const boxService = {
           }
         },
         subsections: {
+          orderBy: {
+            position: 'asc'
+          },
           include: {
             tracks: {
               select: {
@@ -323,8 +326,7 @@ const boxService = {
       data: {
         deletedAt: new Date(),
         folderId: null,
-        folderPosition: null,
-        position: null
+        folderPosition: null
       }
     });
   },
@@ -467,49 +469,89 @@ const boxService = {
     await prisma.$transaction(operations);
   },
   async updateDashboardBoxPosition(boxId: string, newPosition: number) {
-    await prisma.box.update({
-      where: { boxId: boxId },
-      data: { position: newPosition }
+    const currentBox = await prisma.box.findUnique({
+      where: { boxId },
     });
-  },
-  async incrementSubsequentDashboardBoxPositions(userId: string, boxId: string, newPosition: number) {
-    await prisma.box.updateMany({
-      where: {
-        creatorId: userId,
-        deletedAt: null,
-        folderId: null,
-        position: {
-          gte: newPosition
+
+    if (!currentBox) {
+      throw new Error("Box not found");
+    }
+
+    const currentPosition = currentBox.position;
+
+    if (newPosition < currentPosition) {
+      // Moving to a lower position
+      await prisma.box.updateMany({
+        where: {
+          creatorId: currentBox.creatorId,
+          deletedAt: null,
+          folderId: null,
+          position: { gte: newPosition, lt: currentPosition },
+          boxId: { not: boxId },
         },
-        boxId: {
-          not: boxId
+        data: { position: { increment: 1 } },
+      });
+    } else if (newPosition > currentPosition) {
+      // Moving to a higher position
+      await prisma.box.updateMany({
+        where: {
+          creatorId: currentBox.creatorId,
+          deletedAt: null,
+          folderId: null,
+          position: { gt: currentPosition, lte: newPosition },
+          boxId: { not: boxId },
         },
-        NOT: {
-          position: null // Only update boxes with non-null positions
-        }
-      },
-      data: {
-        position: {
-          increment: 1
-        }
-      }
+        data: { position: { decrement: 1 } },
+      });
+    }
+
+    await prisma.box.update({
+      where: { boxId },
+      data: { position: newPosition },
     });
   },
   async updateFolderBoxPosition(boxId: string, newPosition: number) {
-    await prisma.box.update({
-      where: { boxId: boxId },
-      data: { folderPosition: newPosition }
+    const currentBox = await prisma.box.findUnique({
+      where: { boxId },
     });
-  },
-  async incrementSubsequentFolderBoxPositions(boxId: string, folderId: string, newPosition: number) {
-    await prisma.box.updateMany({
-      where: {
-        folderId: folderId,
-        deletedAt: null,
-        boxId: { not: boxId }, // Exclude the target box
-        folderPosition: { gte: newPosition } // Select boxes with positions greater than or equal to the target position
-      },
-      data: { folderPosition: { increment: 1 } } // Increment the position of selected boxes by 1
+
+    if (!currentBox) {
+      throw new Error("Box not found");
+    }
+
+    const currentPosition = currentBox.folderPosition;
+
+    if (currentPosition === null) {
+      throw new Error("Current folder position is null");
+    }
+
+    if (newPosition < currentPosition) {
+      // Moving to a lower position
+      await prisma.box.updateMany({
+        where: {
+          folderId: currentBox.folderId,
+          deletedAt: null,
+          folderPosition: { gte: newPosition, lt: currentPosition },
+          boxId: { not: boxId },
+        },
+        data: { folderPosition: { increment: 1 } },
+      });
+    } else if (newPosition > currentPosition) {
+      // Moving to a higher position
+      await prisma.box.updateMany({
+        where: {
+          folderId: currentBox.folderId,
+          deletedAt: null,
+          folderPosition: { gt: currentPosition, lte: newPosition },
+          boxId: { not: boxId },
+        },
+        data: { folderPosition: { decrement: 1 } },
+      });
+    }
+
+    await prisma.box.update({
+      where: { boxId },
+      data: { folderPosition: newPosition },
     });
   },
   async cloneBoxItems(originalBox: any, newBoxId: string) {

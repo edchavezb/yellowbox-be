@@ -141,36 +141,80 @@ const albumService = {
     return result._max.position;
   },
   async updateBoxAlbumPosition(boxAlbumId: string, newPosition: number) {
-    await prisma.boxAlbum.update({
-      where: { boxAlbumId },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentBoxAlbumPositions(boxId: string, boxAlbumId: string, position: number) {
-    await prisma.boxAlbum.updateMany({
-      where: {
-        boxId,
-        boxAlbumId: { not: boxAlbumId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentBoxAlbum = await prisma.boxAlbum.findUnique({
+          where: { boxAlbumId },
+      });
+  
+      if (!currentBoxAlbum) {
+          throw new Error("Box album not found");
+      }
+  
+      const currentPosition = currentBoxAlbum.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxAlbum.updateMany({
+              where: {
+                  boxId: currentBoxAlbum.boxId,
+                  boxAlbumId: { not: boxAlbumId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxAlbum.updateMany({
+              where: {
+                  boxId: currentBoxAlbum.boxId,
+                  boxAlbumId: { not: boxAlbumId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxAlbum.update({
+          where: { boxAlbumId },
+          data: { position: newPosition },
+      });
   },
   async updateSubsectionAlbumPosition(subsectionId: string, boxAlbumId: string, newPosition: number) {
-    await prisma.boxSubsectionAlbum.update({
-      where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
-      data: { position: newPosition },
-    });
-  },
-  async updateSubsequentSubsectionAlbumPositions(subsectionId: string, boxAlbumId: string, position: number) {
-    await prisma.boxSubsectionAlbum.updateMany({
-      where: {
-        subsectionId,
-        boxAlbumId: { not: boxAlbumId },
-        position: { gte: position },
-      },
-      data: { position: { increment: 1 } },
-    });
+      const currentSubsectionAlbum = await prisma.boxSubsectionAlbum.findUnique({
+          where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
+      });
+  
+      if (!currentSubsectionAlbum) {
+          throw new Error("Subsection album not found");
+      }
+  
+      const currentPosition = currentSubsectionAlbum.position;
+  
+      if (newPosition < currentPosition) {
+          // Moving to a lower position
+          await prisma.boxSubsectionAlbum.updateMany({
+              where: {
+                  subsectionId,
+                  boxAlbumId: { not: boxAlbumId },
+                  position: { gte: newPosition, lt: currentPosition },
+              },
+              data: { position: { increment: 1 } },
+          });
+      } else if (newPosition > currentPosition) {
+          // Moving to a higher position
+          await prisma.boxSubsectionAlbum.updateMany({
+              where: {
+                  subsectionId,
+                  boxAlbumId: { not: boxAlbumId },
+                  position: { gt: currentPosition, lte: newPosition },
+              },
+              data: { position: { decrement: 1 } },
+          });
+      }
+  
+      await prisma.boxSubsectionAlbum.update({
+          where: { boxAlbumId_subsectionId: { subsectionId, boxAlbumId } },
+          data: { position: newPosition },
+      });
   },
   async updateBoxAlbumNote(boxAlbumId: string, note: string) {
     const updatedBoxAlbum = await prisma.boxAlbum.update({

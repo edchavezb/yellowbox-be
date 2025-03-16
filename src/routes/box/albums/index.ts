@@ -42,7 +42,6 @@ routes.put("/:boxId/albums/:boxAlbumId/reorder", async (req, res) => {
 
     const newPosition = destinationAlbum.position;
     await albumService.updateBoxAlbumPosition(targetAlbum.boxAlbumId, newPosition);
-    await albumService.updateSubsequentBoxAlbumPositions(boxId, boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {
@@ -109,7 +108,6 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async
 
     const newPosition = destinationAlbum.position
     await albumService.updateSubsectionAlbumPosition(subsectionId, boxAlbumId, newPosition);
-    await albumService.updateSubsequentSubsectionAlbumPositions(subsectionId, boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {

@@ -79,6 +79,18 @@ routes.post("/:boxId/subsections/:subsectionId/tracks", async (req, res) => {
     const { boxId, subsectionId } = req.params;
     const { boxTrackId } = req.body;
 
+    // Check if the track is a valid boxTrack
+    const trackInBox = await trackService.getTrackInBox(boxTrackId);
+    if (!trackInBox) {
+      return res.status(404).json({ error: "Track not found" });
+    }
+
+    // Check if the track is already in the subsection
+    const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
+    if (trackInSubsection) {
+      return res.status(400).json({ error: "Track already in subsection" });
+    }
+
     const boxTrack = await trackService.getTrackInBox(boxTrackId);
     const maxTrackPosition = await trackService.getMaxSubsectionTrackPosition(subsectionId);
     const newTrackPosition = (maxTrackPosition || 0) + 1;
@@ -116,10 +128,60 @@ routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/reorder", async
   }
 });
 
+// Move a track to a different subsection
+routes.put("/:boxId/subsections/:subsectionId/tracks/:boxTrackId/move", async (req, res) => {
+  try {
+    const { boxId, boxTrackId, subsectionId } = req.params;
+    const { destinationSubsectionId } = req.body;
+
+    // Check if the track is a valid boxTrack
+    const trackInBox = await trackService.getTrackInBox(boxTrackId);
+    if (!trackInBox) {
+      return res.status(404).json({ error: "Track not found" });
+    }
+
+    // Check if the track is in the current subsection
+    const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
+    if (!trackInSubsection) {
+      return res.status(404).json({ error: "Track not found in the current subsection" });
+    }
+
+    // Check if the track is already in the destination subsection
+    const trackInDestinationSubsection = await trackService.checkTrackInSubsection(destinationSubsectionId, boxTrackId);
+    if (trackInDestinationSubsection) {
+      return res.status(400).json({ error: "Track already in the destination subsection" });
+    }
+
+    // Remove the track from the current subsection
+    await trackService.deleteBoxSubsectionTrack(subsectionId, boxTrackId);
+
+    // Get the max position in the destination subsection
+    const maxTrackPosition = await trackService.getMaxSubsectionTrackPosition(destinationSubsectionId);
+    const newTrackPosition = (maxTrackPosition || 0) + 1;
+
+    // Add the track to the destination subsection
+    await trackService.createBoxSubsectionTrack(destinationSubsectionId, boxTrackId, newTrackPosition);
+
+    const updatedBox = await boxService.getBoxById(boxId);
+
+    return res.status(200).json(updatedBox);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // Remove a track from a subsection
 routes.delete("/:boxId/subsections/:subsectionId/tracks/:boxTrackId", async (req, res) => {
   try {
     const { boxId, boxTrackId, subsectionId } = req.params;
+
+    // Check if the track is in the subsection
+    const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
+    if (!trackInSubsection) {
+      return res.status(400).json({ error: "Track not in subsection" });
+    }
+
     await trackService.deleteBoxSubsectionTrack(subsectionId, boxTrackId);
     const updatedBox = await boxService.getBoxById(boxId);
 

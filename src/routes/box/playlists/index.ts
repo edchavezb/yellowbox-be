@@ -176,7 +176,7 @@ routes.delete("/:boxId/subsections/:subsectionId/playlists/:boxPlaylistId", asyn
   try {
     const { boxId, boxPlaylistId, subsectionId } = req.params;
 
-    // Check if the playlist is already in the subsection
+    // Check if the playlist is in the subsection
     const playlistInSubsection = await playlistService.checkPlaylistInSubsection(subsectionId, boxPlaylistId);
     if (!playlistInSubsection) {
       return res.status(400).json({ error: "Playlist not in subsection" });

@@ -175,6 +175,13 @@ routes.put("/:boxId/subsections/:subsectionId/artists/:boxArtistId/move", async 
 routes.delete("/:boxId/subsections/:subsectionId/artists/:boxArtistId", async (req, res) => {
   try {
     const { boxId, boxArtistId, subsectionId } = req.params;
+
+    // Check if the artist is in the subsection
+    const artistInSubsection = await artistService.checkArtistInSubsection(subsectionId, boxArtistId);
+    if (!artistInSubsection) {
+      return res.status(400).json({ error: "Artist not in subsection" });
+    }
+
     await artistService.deleteBoxSubsectionArtist(subsectionId, boxArtistId);
     const updatedBox = await boxService.getBoxById(boxId);
 

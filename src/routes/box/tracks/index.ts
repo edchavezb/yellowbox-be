@@ -176,7 +176,7 @@ routes.delete("/:boxId/subsections/:subsectionId/tracks/:boxTrackId", async (req
   try {
     const { boxId, boxTrackId, subsectionId } = req.params;
 
-    // Check if the track is already in the subsection
+    // Check if the track is in the subsection
     const trackInSubsection = await trackService.checkTrackInSubsection(subsectionId, boxTrackId);
     if (!trackInSubsection) {
       return res.status(400).json({ error: "Track not in subsection" });

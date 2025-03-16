@@ -175,6 +175,13 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/move", async (r
 routes.delete("/:boxId/subsections/:subsectionId/albums/:boxAlbumId", async (req, res) => {
   try {
     const { boxId, boxAlbumId, subsectionId } = req.params;
+
+    // Check if the album is in the subsection
+    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    if (!albumInSubsection) {
+      return res.status(404).json({ error: "Album not in subsection" });
+    }
+
     await albumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
     const updatedBox = await boxService.getBoxById(boxId);
 

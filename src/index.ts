@@ -4,6 +4,7 @@ import cors from "cors";
 import boxRoutes from "./routes/box";
 import folderRoutes from "./routes/folder";
 import userRoutes from "./routes/user"
+import queueRoutes from "./routes/queue"
 import spotifyRoutes from "./routes/spotify"
 import boxArtists from "./routes/box/artists";
 import boxAlbums from "./routes/box/albums";
@@ -37,6 +38,7 @@ app.use("/api/boxes", boxPlaylists);
 app.use("/api/items", itemRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/users", queueRoutes);
 app.use("/api/spotify", spotifyRoutes);
 
 app.get("/", async (req, res) => {

@@ -54,8 +54,8 @@ const userService = {
         email
       }
     });
-
-    // Use the userId to create user billing and user account management data
+  
+    // Use the userId to create user billing, user account management data, and user queue
     await prisma.$transaction([
       prisma.userBilling.create({
         data: {
@@ -66,9 +66,14 @@ const userService = {
         data: {
           userId: newUser.userId,
         }
+      }),
+      prisma.userQueue.create({
+        data: {
+          userId: newUser.userId,
+        }
       })
     ]);
-
+  
     return newUser;
   },
   async deleteUser(userId: string) {

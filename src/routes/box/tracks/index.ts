@@ -1,6 +1,7 @@
 import { Router } from "express";
 import boxService from "../../../services/box/boxService";
 import trackService from "../../../services/boxItem/trackService";
+import queueService from "../../../services/queue/queueService";
 
 const routes = Router();
 
@@ -58,9 +59,10 @@ routes.delete("/:boxId/tracks/:boxTrackId", async (req, res) => {
     const track = await trackService.getTrackInBox(boxTrackId);
 
     const boxTrackCount = await trackService.getTrackBoxCount(track!.trackId);
+    const queueTrackCount = await queueService.getTrackQueueCount(track!.trackId);
     await trackService.deleteBoxTrack(boxTrackId);
 
-    if (boxTrackCount === 1) {
+    if (boxTrackCount === 1 && queueTrackCount === 0) {
       await trackService.deleteTrack(track!.trackId);
     }
 

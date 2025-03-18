@@ -1,6 +1,7 @@
 import { Router } from "express";
 import boxService from "../../../services/box/boxService";
 import albumService from "../../../services/boxItem/albumService";
+import queueService from "../../../services/queue/queueService";
 
 const routes = Router();
 
@@ -58,9 +59,10 @@ routes.delete("/:boxId/albums/:boxAlbumId", async (req, res) => {
     const album = await albumService.getAlbumInBox(boxAlbumId);
 
     const boxAlbumCount = await albumService.getAlbumBoxCount(album!.albumId);
+    const queueAlbumCount = await queueService.getAlbumQueueCount(album!.albumId);
     await albumService.deleteBoxAlbum(boxAlbumId);
 
-    if (boxAlbumCount === 1) {
+    if (boxAlbumCount === 1 && queueAlbumCount === 0) {
       await albumService.deleteAlbum(album!.albumId);
     }
 

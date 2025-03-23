@@ -2,32 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const artistService = {
-  async createArtist(artistData: any) {
-    const { spotifyId, name, images, genres, type } = artistData;
-    const newArtist = await prisma.artist.upsert({
-      where: { spotifyId },
-      update: {},
-      create: { spotifyId, name, images, genres, type },
-    });
-
-    return newArtist;
-  },
-  async updateArtistImages(spotifyId: string, images: any) {
-    return await prisma.artist.update({
-      where: {
-        spotifyId
-      },
-      data: {
-        images: images
-      },
-    });
-  },
-  async deleteArtist(spotifyId: string) {
-    await prisma.artist.delete({
-      where: { spotifyId },
-    });
-  },
+const boxArtistService = {
   async createBoxArtist(boxId: string, spotifyId: string, position: number) {
     const newBoxArtist = await prisma.boxArtist.create({
       data: {
@@ -234,4 +209,4 @@ const artistService = {
   },
 };
 
-export default artistService;
+export default boxArtistService;

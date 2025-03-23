@@ -4,13 +4,13 @@ import { BoxCreateDTO } from "../../types/interfaces";
 const prisma = new PrismaClient();
 
 const boxService = {
-  async getBoxById(boxId: string) {
+    async getBoxById(boxId: string, viewingUserId?: string) {
     const box = await prisma.box.findFirst({
       where: {
         AND: {
           boxId: boxId as string,
-          deletedAt: null
-        }
+          deletedAt: null,
+        },
       },
       select: {
         boxId: true,
@@ -21,67 +21,99 @@ const boxService = {
         folder: {
           select: {
             name: true,
-            folderId: true
-          }
+            folderId: true,
+          },
         },
         creator: {
           select: {
             username: true,
-            userId: true
-          }
+            userId: true,
+          },
         },
         isPublic: true,
         artists: {
           include: {
-            artist: true,
+            artist: {
+              include: viewingUserId
+                ? {
+                    userPlays: {
+                      where: { userId: viewingUserId },
+                    },
+                  }
+                : undefined,
+            },
             subsections: {
               select: {
-                subsectionId: true
-              }
-            }
+                subsectionId: true,
+              },
+            },
           },
           orderBy: {
-            position: 'asc'
-          }
+            position: "asc",
+          },
         },
         albums: {
           include: {
-            album: true,
+            album: {
+              include: viewingUserId
+                ? {
+                    userPlays: {
+                      where: { userId: viewingUserId },
+                    },
+                  }
+                : undefined,
+            },
             subsections: {
               select: {
-                subsectionId: true
-              }
-            }
+                subsectionId: true,
+              },
+            },
           },
           orderBy: {
-            position: 'asc'
-          }
+            position: "asc",
+          },
         },
         tracks: {
           include: {
-            track: true,
+            track: {
+              include: viewingUserId
+                ? {
+                    userPlays: {
+                      where: { userId: viewingUserId },
+                    },
+                  }
+                : undefined,
+            },
             subsections: {
               select: {
-                subsectionId: true
-              }
-            }
+                subsectionId: true,
+              },
+            },
           },
           orderBy: {
-            position: 'asc'
-          }
+            position: "asc",
+          },
         },
         playlists: {
           include: {
-            playlist: true,
+            playlist: {
+              include: viewingUserId
+                ? {
+                    userPlays: {
+                      where: { userId: viewingUserId },
+                    },
+                  }
+                : undefined,
+            },
             subsections: {
               select: {
-                subsectionId: true
-              }
-            }
+                subsectionId: true,
+              },
+            },
           },
           orderBy: {
-            position: 'asc'
-          }
+            position: "asc",
+          },
         },
         sectionSettings: {
           select: {
@@ -92,12 +124,12 @@ const boxService = {
             secondarySorting: true,
             sortingOrder: true,
             type: true,
-            view: true
-          }
+            view: true,
+          },
         },
         subsections: {
           orderBy: {
-            position: 'asc'
+            position: "asc",
           },
           include: {
             tracks: {
@@ -109,13 +141,21 @@ const boxService = {
                 boxTrack: {
                   select: {
                     boxTrackId: true,
-                    track: true
-                  }
-                }
+                    track: {
+                      include: viewingUserId
+                        ? {
+                            userPlays: {
+                              where: { userId: viewingUserId },
+                            },
+                          }
+                        : undefined,
+                    },
+                  },
+                },
               },
               orderBy: {
-                position: 'asc'
-              }
+                position: "asc",
+              },
             },
             artists: {
               select: {
@@ -125,13 +165,21 @@ const boxService = {
                 note: true,
                 boxArtist: {
                   select: {
-                    artist: true
-                  }
-                }
+                    artist: {
+                      include: viewingUserId
+                        ? {
+                            userPlays: {
+                              where: { userId: viewingUserId },
+                            },
+                          }
+                        : undefined,
+                    },
+                  },
+                },
               },
               orderBy: {
-                position: 'asc'
-              }
+                position: "asc",
+              },
             },
             albums: {
               select: {
@@ -142,13 +190,21 @@ const boxService = {
                 boxAlbum: {
                   select: {
                     boxAlbumId: true,
-                    album: true
-                  }
-                }
+                    album: {
+                      include: viewingUserId
+                        ? {
+                            userPlays: {
+                              where: { userId: viewingUserId },
+                            },
+                          }
+                        : undefined,
+                    },
+                  },
+                },
               },
               orderBy: {
-                position: 'asc'
-              }
+                position: "asc",
+              },
             },
             playlists: {
               select: {
@@ -159,41 +215,89 @@ const boxService = {
                 boxPlaylist: {
                   select: {
                     boxPlaylistId: true,
-                    playlist: true
-                  }
-                }
+                    playlist: {
+                      include: viewingUserId
+                        ? {
+                            userPlays: {
+                              where: { userId: viewingUserId },
+                            },
+                          }
+                        : undefined,
+                    },
+                  },
+                },
               },
               orderBy: {
-                position: 'asc'
-              }
-            }
-          }
-        }
-      }
+                position: "asc",
+              },
+            },
+          },
+        },
+      },
     });
-
+  
     if (box) {
-      const responseArtists = box.artists.map(item => flattenBoxItem(item, item.artist, item.subsections.map(sub => sub.subsectionId)))
-      const responseAlbums = box.albums.map(item => flattenBoxItem(item, item.album, item.subsections.map(sub => sub.subsectionId)))
-      const responseTracks = box.tracks.map(item => flattenBoxItem(item, item.track, item.subsections.map(sub => sub.subsectionId)))
-      const responsePlaylists = box.playlists.map(item => flattenBoxItem(item, item.playlist, item.subsections.map(sub => sub.subsectionId)))
-      const responseSubsections = box.subsections.map(sub => {
+      const responseArtists = box.artists.map((item) =>
+        flattenBoxItem(
+          item,
+          item.artist,
+          item.subsections.map((sub) => sub.subsectionId)
+        )
+      );
+      const responseAlbums = box.albums.map((item) =>
+        flattenBoxItem(
+          item,
+          item.album,
+          item.subsections.map((sub) => sub.subsectionId)
+        )
+      );
+      const responseTracks = box.tracks.map((item) =>
+        flattenBoxItem(
+          item,
+          item.track,
+          item.subsections.map((sub) => sub.subsectionId)
+        )
+      );
+      const responsePlaylists = box.playlists.map((item) =>
+        flattenBoxItem(
+          item,
+          item.playlist,
+          item.subsections.map((sub) => sub.subsectionId)
+        )
+      );
+      const responseSubsections = box.subsections.map((sub) => {
         const { artists, tracks, playlists, albums, ...remainderProps } = sub;
         const flattenedItems = {
-          tracks: tracks.map(track => flattenSubsectionItem(track, track.boxTrack.track)),
-          playlists: playlists.map(playlist => flattenSubsectionItem(playlist, playlist.boxPlaylist.playlist)),
-          albums: albums.map(album => flattenSubsectionItem(album, album.boxAlbum.album)),
-          artists: artists.map(artist => flattenSubsectionItem(artist, artist.boxArtist.artist))
-        }
-        const reducedSubsection = { ...remainderProps, items: flattenedItems[sub.itemType as keyof typeof flattenedItems] }
+          tracks: tracks.map((track) =>
+            flattenSubsectionItem(track, track.boxTrack.track)
+          ),
+          playlists: playlists.map((playlist) =>
+            flattenSubsectionItem(playlist, playlist.boxPlaylist.playlist)
+          ),
+          albums: albums.map((album) =>
+            flattenSubsectionItem(album, album.boxAlbum.album)
+          ),
+          artists: artists.map((artist) =>
+            flattenSubsectionItem(artist, artist.boxArtist.artist)
+          ),
+        };
+        const reducedSubsection = {
+          ...remainderProps,
+          items: flattenedItems[sub.itemType as keyof typeof flattenedItems],
+        };
         return reducedSubsection;
-      })
-
-      return { ...box, artists: responseArtists, albums: responseAlbums, tracks: responseTracks, playlists: responsePlaylists, subsections: responseSubsections }
-    }
-
-    else {
-      return null
+      });
+  
+      return {
+        ...box,
+        artists: responseArtists,
+        albums: responseAlbums,
+        tracks: responseTracks,
+        playlists: responsePlaylists,
+        subsections: responseSubsections,
+      };
+    } else {
+      return null;
     }
   },
   async getUserBoxes(userId: string) {

@@ -47,13 +47,6 @@ const queueService = {
     return !!albumInQueue;
   },
 
-  async markQueueAlbumAsPlayed(queueId: string, spotifyId: string) {
-    await prisma.queueAlbum.updateMany({
-      where: { queueId, albumId: spotifyId },
-      data: { isPlayed: true },
-    });
-  },
-
   // QueueArtist methods
   async createQueueArtist(queueId: string, spotifyId: string, position: number) {
     const newQueueArtist = await prisma.queueArtist.create({
@@ -85,13 +78,6 @@ const queueService = {
       where: { queueId, artistId: spotifyId },
     });
     return !!artistInQueue;
-  },
-
-  async markQueueArtistAsPlayed(queueId: string, spotifyId: string) {
-    await prisma.queueArtist.updateMany({
-      where: { queueId, artistId: spotifyId },
-      data: { isPlayed: true },
-    });
   },
 
   // QueuePlaylist methods
@@ -127,13 +113,6 @@ const queueService = {
     return !!playlistInQueue;
   },
 
-  async markQueuePlaylistAsPlayed(queueId: string, spotifyId: string) {
-    await prisma.queuePlaylist.updateMany({
-      where: { queueId, playlistId: spotifyId },
-      data: { isPlayed: true },
-    });
-  },
-
   // QueueTrack methods
   async createQueueTrack(queueId: string, spotifyId: string, position: number) {
     const newQueueTrack = await prisma.queueTrack.create({
@@ -165,13 +144,6 @@ const queueService = {
       where: { queueId, trackId: spotifyId },
     });
     return !!trackInQueue;
-  },
-
-  async markQueueTrackAsPlayed(queueId: string, spotifyId: string) {
-    await prisma.queueTrack.updateMany({
-      where: { queueId, trackId: spotifyId },
-      data: { isPlayed: true },
-    });
   },
 
   // Method to get the count of occurrences of an album across all queues

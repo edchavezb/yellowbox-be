@@ -2,41 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const playlistService = {
-  async createPlaylist(playlistData: any) {
-    const { spotifyId, name, description, ownerDisplayName, ownerId, images, type, totalTracks } = playlistData;
-    const newPlaylist = await prisma.playlist.upsert({
-      where: { spotifyId },
-      update: {},
-      create: {
-        spotifyId,
-        name,
-        description,
-        ownerDisplayName,
-        ownerId,
-        images,
-        type,
-        totalTracks
-      }
-    });
-
-    return newPlaylist;
-  },
-  async updatePlaylistImages(spotifyId: string, images: any) {
-    return await prisma.playlist.update({
-      where: {
-        spotifyId
-      },
-      data: {
-        images: images
-      },
-    });
-  },
-  async deletePlaylist(spotifyId: string) {
-    await prisma.playlist.delete({
-      where: { spotifyId },
-    });
-  },
+const boxPlaylistService = {
   async createBoxPlaylist(boxId: string, spotifyId: string, position: number) {
     const newBoxPlaylist = await prisma.boxPlaylist.create({
       data: {
@@ -243,4 +209,4 @@ const playlistService = {
   },
 };
 
-export default playlistService;
+export default boxPlaylistService;

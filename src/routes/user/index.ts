@@ -11,7 +11,10 @@ const routes = Router();
 // TESTED
 // Get the authenticated user's data
 routes.get("/me", authenticate, async (req, res) => {
-  res.status(200).json({ appUser: req.user });
+  const { userId } = req.user;
+  const appUser = await userService.getUserData(userId);
+
+  res.status(200).json({ appUser });
 });
 
 // TESTED

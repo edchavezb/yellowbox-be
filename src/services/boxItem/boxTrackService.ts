@@ -2,43 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const trackService = {
-  async createTrack(trackData: any) {
-    const { spotifyId, name, artists, albumName, albumId, albumReleaseDate, albumImages, duration, explicit, type } = trackData;
-    const newTrack = await prisma.track.upsert({
-      where: { spotifyId },
-      update: {},
-      create: {
-        spotifyId,
-        name,
-        artists,
-        albumName,
-        albumId,
-        albumReleaseDate,
-        albumImages,
-        duration,
-        explicit: Boolean(explicit),
-        type
-      }
-    });
-
-    return newTrack;
-  },
-  async updateTrackImages(spotifyId: string, images: any) {
-    return await prisma.track.update({
-      where: {
-        spotifyId
-      },
-      data: {
-        albumImages: images
-      },
-    });
-  },
-  async deleteTrack(spotifyId: string) {
-    await prisma.track.delete({
-      where: { spotifyId },
-    });
-  },
+const boxTrackService = {
   async createBoxTrack(boxId: string, spotifyId: string, position: number) {
     const newBoxTrack = await prisma.boxTrack.create({
       data: {
@@ -245,4 +209,4 @@ const trackService = {
   },
 };
 
-export default trackService;
+export default boxTrackService;

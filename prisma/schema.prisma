@@ -9,21 +9,23 @@ datasource db {
 }
 
 model User {
-  userId           String                     @id @default(uuid()) @db.Uuid
-  firebaseId       String                     @unique
-  username         String                     @unique
-  email            String                     @unique
-  firstName        String?
-  lastName         String?
-  imageUrl         String?
-  accountData      UserAccountManagementData?
-  billing          UserBilling?
-  spotifyAccount   UserSpotifyAccount?
-  queue             UserQueue?
-  folders          Folder[]
-  boxes            Box[]
-  UserTag          UserTag[]
-  ItemPlayedStatus ItemPlayedStatus[]
+  userId          String                     @id @default(uuid()) @db.Uuid
+  firebaseId      String                     @unique
+  username        String                     @unique
+  email           String                     @unique
+  firstName       String?
+  lastName        String?
+  imageUrl        String?
+  accountData     UserAccountManagementData?
+  billing         UserBilling?
+  spotifyAccount  UserSpotifyAccount?
+  queue           UserQueue?
+  folders         Folder[]
+  boxes           Box[]
+  playedArtists   PlayedArtist[]
+  playedAlbums    PlayedAlbum[]
+  playedTracks    PlayedTrack[]
+  playedPlaylists PlayedPlaylist[]
 }
 
 model UserAccountManagementData {
@@ -54,7 +56,7 @@ model UserSpotifyAccount {
 
 model UserQueue {
   queueId       String          @id @default(uuid()) @db.Uuid
-  userId        String          @db.Uuid @unique
+  userId        String          @unique @db.Uuid
   lastUpdatedAt DateTime        @default(now())
   QueueArtist   QueueArtist[]
   QueueAlbum    QueueAlbum[]
@@ -228,7 +230,6 @@ model QueueArtist {
   queueId       String    @db.Uuid
   position      Int
   createdAt     DateTime  @default(now())
-  isPlayed      Boolean   @default(false)
   artist        Artist    @relation(fields: [artistId], references: [spotifyId])
   queue         UserQueue @relation(fields: [queueId], references: [queueId], onDelete: Cascade)
 
@@ -241,7 +242,6 @@ model QueueAlbum {
   queueId      String    @db.Uuid
   position     Int
   createdAt    DateTime  @default(now())
-    isPlayed      Boolean   @default(false)
   album        Album     @relation(fields: [albumId], references: [spotifyId])
   queue        UserQueue @relation(fields: [queueId], references: [queueId], onDelete: Cascade)
 
@@ -254,7 +254,6 @@ model QueuePlaylist {
   queueId         String    @db.Uuid
   position        Int
   createdAt       DateTime  @default(now())
-    isPlayed      Boolean   @default(false)
   playlist        Playlist  @relation(fields: [playlistId], references: [spotifyId])
   queue           UserQueue @relation(fields: [queueId], references: [queueId], onDelete: Cascade)
 
@@ -267,25 +266,73 @@ model QueueTrack {
   queueId      String    @db.Uuid
   position     Int
   createdAt    DateTime  @default(now())
-    isPlayed      Boolean   @default(false)
   track        Track     @relation(fields: [trackId], references: [spotifyId])
   queue        UserQueue @relation(fields: [queueId], references: [queueId], onDelete: Cascade)
 
   @@unique([trackId, queueId])
 }
 
+model PlayedArtist {
+  playedArtistId String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  artistId       String
+  lastPlayedAt   DateTime?
+
+  user   User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [spotifyId], onDelete: Cascade)
+
+  @@unique([userId, artistId])
+}
+
+model PlayedAlbum {
+  playedAlbumId String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  albumId       String
+  lastPlayedAt  DateTime?
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  album Album @relation(fields: [albumId], references: [spotifyId], onDelete: Cascade)
+
+  @@unique([userId, albumId])
+}
+
+model PlayedTrack {
+  playedTrackId String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  trackId       String
+  lastPlayedAt  DateTime?
+
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [spotifyId], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+}
+
+model PlayedPlaylist {
+  playedPlaylistId String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  playlistId       String
+  lastPlayedAt     DateTime?
+
+  user     User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [spotifyId], onDelete: Cascade)
+
+  @@unique([userId, playlistId])
+}
+
 model Artist {
-  spotifyId   String        @id
-  name        String
-  genres      String[]
-  type        String
-  images      Json
-  boxes       BoxArtist[]
-  queues     QueueArtist[]
+  spotifyId String         @id
+  name      String
+  genres    String[]
+  type      String
+  images    Json
+  boxes     BoxArtist[]
+  queues    QueueArtist[]
+  userPlays PlayedArtist[]
 }
 
 model Album {
-  spotifyId   String       @id
+  spotifyId   String        @id
   name        String
   images      Json
   albumType   String
@@ -294,11 +341,12 @@ model Album {
   totalTracks Int
   type        String
   boxes       BoxAlbum[]
-  queues  QueueAlbum[]
+  queues      QueueAlbum[]
+  userPlays   PlayedAlbum[]
 }
 
 model Playlist {
-  spotifyId        String          @id
+  spotifyId        String           @id
   name             String
   description      String
   ownerDisplayName String
@@ -307,11 +355,12 @@ model Playlist {
   type             String
   totalTracks      Int
   boxes            BoxPlaylist[]
-  queues    QueuePlaylist[]
+  queues           QueuePlaylist[]
+  userPlays        PlayedPlaylist[]
 }
 
 model Track {
-  spotifyId        String       @id
+  spotifyId        String        @id
   name             String
   artists          Json
   albumName        String
@@ -322,54 +371,8 @@ model Track {
   explicit         Boolean
   type             String
   boxes            BoxTrack[]
-  queues       QueueTrack[]
-}
-
-model UserTag {
-  tagId   String    @id @default(uuid()) @db.Uuid
-  userId  String    @db.Uuid
-  tag     String
-  user    User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  ItemTag ItemTag[]
-}
-
-model ItemTag {
-  itemTagId String  @id @default(uuid()) @db.Uuid
-  tagId     String  @db.Uuid
-  itemId    String
-  tag       String
-  itemType  String
-  userTag   UserTag @relation(fields: [tagId], references: [tagId], onDelete: Cascade)
-}
-
-model ItemPlayedStatus {
-  userItemId   String       @id @default(uuid()) @db.Uuid
-  userId       String       @db.Uuid
-  itemId       String
-  itemType     String
-  isPlayed     Boolean      @default(false)
-  lastPlayedAt DateTime?
-  user         User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  ItemReview   ItemReview[]
-
-  @@unique([userId, itemId])
-}
-
-model ItemReview {
-  reviewId                   String            @id @default(uuid()) @db.Uuid
-  userItemId                 String            @db.Uuid
-  content                    String
-  reviewSentiment            ReviewSentiment
-  createdAt                  DateTime          @default(now())
-  deletedAt                  DateTime?
-  ItemPlayedStatus           ItemPlayedStatus? @relation(fields: [itemPlayedStatusUserItemId], references: [userItemId])
-  itemPlayedStatusUserItemId String?           @db.Uuid
-}
-
-enum ReviewSentiment {
-  LIKE
-  DISLIKE
-  NEUTRAL
+  queues           QueueTrack[]
+  userPlays        PlayedTrack[]
 }
 
 enum AccountTiers {

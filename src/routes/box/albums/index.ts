@@ -1,7 +1,10 @@
 import { Router } from "express";
 import boxService from "../../../services/box/boxService";
-import albumService from "../../../services/boxItem/albumService";
+import boxAlbumService from "../../../services/boxItem/boxAlbumService";
 import queueService from "../../../services/queue/queueService";
+import albumService from "../../../services/item/albumService";
+import authenticate from "../../../middleware/autenticate";
+import { User } from "@prisma/client";
 
 const routes = Router();
 
@@ -11,15 +14,15 @@ routes.post("/:boxId/albums", async (req, res) => {
     const { boxId } = req.params;
     const albumData = req.body.newAlbum;
 
-    const albumInBox = await albumService.checkAlbumInBox(boxId, albumData.spotifyId);
+    const albumInBox = await boxAlbumService.checkAlbumInBox(boxId, albumData.spotifyId);
     if (albumInBox) {
       return res.status(400).json({ error: "Item already in box" });
     }
 
     const newAlbum = await albumService.createAlbum(albumData);
-    const maxAlbumPosition = await albumService.getMaxBoxAlbumPosition(boxId);
+    const maxAlbumPosition = await boxAlbumService.getMaxBoxAlbumPosition(boxId);
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
-    const newBoxAlbum = await albumService.createBoxAlbum(boxId, newAlbum.spotifyId, newAlbumPosition);
+    const newBoxAlbum = await boxAlbumService.createBoxAlbum(boxId, newAlbum.spotifyId, newAlbumPosition);
 
     return res.status(201).json(newBoxAlbum);
   } catch (error) {
@@ -31,18 +34,18 @@ routes.post("/:boxId/albums", async (req, res) => {
 // Reorder an album in a box
 routes.put("/:boxId/albums/:boxAlbumId/reorder", async (req, res) => {
   try {
-    const { boxId, boxAlbumId } = req.params;
+    const { boxAlbumId } = req.params;
     const { destinationId } = req.body;
 
-    const targetAlbum = await albumService.getAlbumInBox(boxAlbumId);
-    const destinationAlbum = await albumService.getAlbumInBox(destinationId);
+    const targetAlbum = await boxAlbumService.getAlbumInBox(boxAlbumId);
+    const destinationAlbum = await boxAlbumService.getAlbumInBox(destinationId);
 
     if (!targetAlbum || !destinationAlbum) {
       return res.status(404).json({ error: "Album not found" });
     }
 
     const newPosition = destinationAlbum.position;
-    await albumService.updateBoxAlbumPosition(targetAlbum.boxAlbumId, newPosition);
+    await boxAlbumService.updateBoxAlbumPosition(targetAlbum.boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {
@@ -52,21 +55,22 @@ routes.put("/:boxId/albums/:boxAlbumId/reorder", async (req, res) => {
 });
 
 // Delete an album from a box
-routes.delete("/:boxId/albums/:boxAlbumId", async (req, res) => {
+routes.delete("/:boxId/albums/:boxAlbumId", authenticate, async (req, res) => {
   try {
     const { boxId, boxAlbumId } = req.params;
+    const viewingUser: User = req.user;
 
-    const album = await albumService.getAlbumInBox(boxAlbumId);
+    const album = await boxAlbumService.getAlbumInBox(boxAlbumId);
 
-    const boxAlbumCount = await albumService.getAlbumBoxCount(album!.albumId);
+    const boxAlbumCount = await boxAlbumService.getAlbumBoxCount(album!.albumId);
     const queueAlbumCount = await queueService.getAlbumQueueCount(album!.albumId);
-    await albumService.deleteBoxAlbum(boxAlbumId);
+    await boxAlbumService.deleteBoxAlbum(boxAlbumId);
 
     if (boxAlbumCount === 1 && queueAlbumCount === 0) {
       await albumService.deleteAlbum(album!.albumId);
     }
 
-    const updatedBox = await boxService.getBoxById(boxId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(201).json(updatedBox);
   } catch (error) {
@@ -76,29 +80,30 @@ routes.delete("/:boxId/albums/:boxAlbumId", async (req, res) => {
 });
 
 // Add an album to a subsection
-routes.post("/:boxId/subsections/:subsectionId/albums", async (req, res) => {
+routes.post("/:boxId/subsections/:subsectionId/albums", authenticate, async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
     const { boxAlbumId } = req.body;
+    const viewingUser: User = req.user;
 
     // Check if the album is a valid boxAlbum
-    const albumInBox = await albumService.getAlbumInBox(boxAlbumId);
+    const albumInBox = await boxAlbumService.getAlbumInBox(boxAlbumId);
     if (!albumInBox) {
       return res.status(404).json({ error: "Album not found" });
     }
 
     // Check if the album is already in the subsection
-    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    const albumInSubsection = await boxAlbumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
     if (albumInSubsection) {
       return res.status(400).json({ error: "Album already in subsection" });
     }
 
-    const boxAlbum = await albumService.getAlbumInBox(boxAlbumId);
-    const maxAlbumPosition = await albumService.getMaxSubsectionAlbumPosition(subsectionId);
+    const boxAlbum = await boxAlbumService.getAlbumInBox(boxAlbumId);
+    const maxAlbumPosition = await boxAlbumService.getMaxSubsectionAlbumPosition(subsectionId);
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
-    await albumService.createBoxSubsectionAlbum(subsectionId, boxAlbum!.boxAlbumId, newAlbumPosition);
+    await boxAlbumService.createBoxSubsectionAlbum(subsectionId, boxAlbum!.boxAlbumId, newAlbumPosition);
 
-    const updatedBox = await boxService.getBoxById(boxId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(201).json(updatedBox);
   } catch (error) {
@@ -113,15 +118,15 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async
     const { subsectionId, boxAlbumId } = req.params;
     const { destinationId } = req.body;
 
-    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
-    const destinationAlbum = await albumService.getAlbumInSubsection(subsectionId, destinationId);
+    const albumInSubsection = await boxAlbumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    const destinationAlbum = await boxAlbumService.getAlbumInSubsection(subsectionId, destinationId);
 
     if (!albumInSubsection || !destinationAlbum) {
       return res.status(404).json({ error: "Album not found" });
     }
 
     const newPosition = destinationAlbum.position
-    await albumService.updateSubsectionAlbumPosition(subsectionId, boxAlbumId, newPosition);
+    await boxAlbumService.updateSubsectionAlbumPosition(subsectionId, boxAlbumId, newPosition);
 
     return res.status(200).json({ message: "Album reordered successfully" });
   } catch (error) {
@@ -131,40 +136,41 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/reorder", async
 });
 
 // Move an album to a different subsection
-routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/move", async (req, res) => {
+routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/move", authenticate, async (req, res) => {
   try {
     const { boxId, boxAlbumId, subsectionId } = req.params;
     const { destinationSubsectionId } = req.body;
+    const viewingUser: User = req.user;
 
     // Check if the album is a valid boxAlbum
-    const albumInBox = await albumService.getAlbumInBox(boxAlbumId);
+    const albumInBox = await boxAlbumService.getAlbumInBox(boxAlbumId);
     if (!albumInBox) {
       return res.status(404).json({ error: "Album not found" });
     }
 
     // Check if the album is in the current subsection
-    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    const albumInSubsection = await boxAlbumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
     if (!albumInSubsection) {
       return res.status(404).json({ error: "Album not found in the current subsection" });
     }
 
     // Check if the album is already in the destination subsection
-    const albumInDestinationSubsection = await albumService.checkAlbumInSubsection(destinationSubsectionId, boxAlbumId);
+    const albumInDestinationSubsection = await boxAlbumService.checkAlbumInSubsection(destinationSubsectionId, boxAlbumId);
     if (albumInDestinationSubsection) {
       return res.status(400).json({ error: "Album already in the destination subsection" });
     }
 
     // Remove the album from the current subsection
-    await albumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
+    await boxAlbumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
 
     // Get the max position in the destination subsection
-    const maxAlbumPosition = await albumService.getMaxSubsectionAlbumPosition(destinationSubsectionId);
+    const maxAlbumPosition = await boxAlbumService.getMaxSubsectionAlbumPosition(destinationSubsectionId);
     const newAlbumPosition = (maxAlbumPosition || 0) + 1;
 
     // Add the album to the destination subsection
-    await albumService.createBoxSubsectionAlbum(destinationSubsectionId, boxAlbumId, newAlbumPosition);
+    await boxAlbumService.createBoxSubsectionAlbum(destinationSubsectionId, boxAlbumId, newAlbumPosition);
 
-    const updatedBox = await boxService.getBoxById(boxId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(200).json(updatedBox);
   } catch (error) {
@@ -174,18 +180,19 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/move", async (r
 });
 
 // Remove an album from a subsection
-routes.delete("/:boxId/subsections/:subsectionId/albums/:boxAlbumId", async (req, res) => {
+routes.delete("/:boxId/subsections/:subsectionId/albums/:boxAlbumId", authenticate, async (req, res) => {
   try {
     const { boxId, boxAlbumId, subsectionId } = req.params;
+    const viewingUser: User = req.user;
 
     // Check if the album is in the subsection
-    const albumInSubsection = await albumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
+    const albumInSubsection = await boxAlbumService.checkAlbumInSubsection(subsectionId, boxAlbumId);
     if (!albumInSubsection) {
       return res.status(404).json({ error: "Album not in subsection" });
     }
 
-    await albumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
-    const updatedBox = await boxService.getBoxById(boxId);
+    await boxAlbumService.deleteBoxSubsectionAlbum(subsectionId, boxAlbumId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(200).json(updatedBox);
   } catch (error) {
@@ -199,7 +206,7 @@ routes.put("/:boxId/albums/:boxAlbumId/note", async (req, res) => {
   try {
     const { boxAlbumId } = req.params;
     const { note } = req.body;
-    const updatedNote = await albumService.updateBoxAlbumNote(boxAlbumId, note);
+    const updatedNote = await boxAlbumService.updateBoxAlbumNote(boxAlbumId, note);
 
     return res.status(200).json({ updatedNote });
   } catch (error) {
@@ -213,7 +220,7 @@ routes.put("/:boxId/subsections/:subsectionId/albums/:boxAlbumId/note", async (r
   try {
     const { boxAlbumId, subsectionId } = req.params;
     const { note } = req.body;
-    const updatedNote = await albumService.updateBoxSubsectionAlbumNote(
+    const updatedNote = await boxAlbumService.updateBoxSubsectionAlbumNote(
       boxAlbumId,
       subsectionId,
       note

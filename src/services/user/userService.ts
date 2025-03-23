@@ -3,6 +3,58 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const userService = {
+  async getUserData(userId: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        userId
+      },
+      include: {
+        boxes: {
+          where: {
+            deletedAt: null
+          },
+          select: {
+            boxId: true,
+            name: true,
+            position: true,
+            folderPosition: true,
+            folderId: true
+          },
+          orderBy: {
+            position: 'asc'
+          }
+        },
+        folders: {
+          select: {
+            folderId: true,
+            name: true,
+            isPublic: true,
+            creator: true,
+            description: true,
+            boxes: {
+              where: {
+                deletedAt: null
+              },
+              select: {
+                boxId: true,
+                name: true,
+                position: true,
+                folderPosition: true
+              },
+              orderBy: {
+                folderPosition: 'asc'
+              }
+            }
+          }
+        },
+        billing: true,
+        accountData: true,
+        spotifyAccount: true
+      }
+    });
+
+    return user;
+  },
   async getUserWithDashboardBoxes(userId: string) {
     const user = await prisma.user.findFirst({
       where: {

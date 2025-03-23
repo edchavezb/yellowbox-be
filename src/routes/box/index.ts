@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { BoxCreateDTO } from "../../types/interfaces";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
 import authenticate from "../../middleware/autenticate"
 import subsectionService from "../../services/box/subsectionService";
 import boxService from "../../services/box/boxService";
@@ -12,11 +12,12 @@ const prisma = new PrismaClient();
 
 // TESTED - Id moved to params, not query
 // Get a single box by id
-routes.get("/:boxId", async (req, res) => {
+routes.get("/:boxId", authenticate, async (req, res) => {
   try {
     const { boxId } = req.params;
+    const viewingUser: User = req.user;
 
-    const boxData = await boxService.getBoxById(boxId);
+    const boxData = await boxService.getBoxById(boxId, viewingUser?.userId);
     if (!boxData) {
       return res.status(404).json({ error: "Box not found" });
     }
@@ -110,13 +111,14 @@ routes.put("/:boxId/undo-delete", authenticate, async (req, res) => {
 
 // TESTED
 // Update a box's section sorting settings by type
-routes.put("/:boxId/section-settings/:type", async (req, res) => {
+routes.put("/:boxId/section-settings/:type", authenticate, async (req, res) => {
   try {
     const { boxId, type } = req.params;
     const updatedSettings = req.body;
+    const viewingUser: User = req.user;
 
     await boxService.updateBoxSectionSettings(boxId, type, updatedSettings);
-    const updatedBox = await boxService.getBoxById(boxId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(201).json({updatedBox});
   } catch (error) {
@@ -127,13 +129,14 @@ routes.put("/:boxId/section-settings/:type", async (req, res) => {
 
 // UNTESTED
 // Update all section sorting settings in a box
-routes.put("/:boxId/section-settings", async (req, res) => {
+routes.put("/:boxId/section-settings", authenticate, async (req, res) => {
   try {
     const { boxId } = req.params;
     const updatedSettings = req.body;
+    const viewingUser: User = req.user;
 
     await boxService.updateAllBoxSectionSettings(boxId, updatedSettings);
-    const updatedBox = await boxService.getBoxById(boxId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(201).json({updatedBox});
   } catch (error) {
@@ -205,12 +208,13 @@ routes.put("/:boxId/subsections/:subsectionId/name", async (req, res) => {
 
 // TESTED
 // Delete a subsection
-routes.delete("/:boxId/subsections/:subsectionId", async (req, res) => {
+routes.delete("/:boxId/subsections/:subsectionId", authenticate, async (req, res) => {
   try {
     const { boxId, subsectionId } = req.params;
-    await subsectionService.deleteSubsection(subsectionId);
+    const viewingUser: User = req.user;
 
-    const updatedBox = await boxService.getBoxById(boxId);
+    await subsectionService.deleteSubsection(subsectionId);
+    const updatedBox = await boxService.getBoxById(boxId, viewingUser?.userId);
 
     return res.status(201).json(updatedBox);
   } catch (error) {

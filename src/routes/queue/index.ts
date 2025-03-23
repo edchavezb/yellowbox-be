@@ -1,10 +1,10 @@
 import { Router } from "express";
 import queueService from "../../services/queue/queueService";
-import albumService from "../../services/boxItem/albumService";
-import artistService from "../../services/boxItem/artistService";
-import playlistService from "../../services/boxItem/playlistService";
-import trackService from "../../services/boxItem/trackService";
 import { PrismaClient } from "@prisma/client";
+import albumService from "../../services/item/albumService";
+import artistService from "../../services/item/artistService";
+import playlistService from "../../services/item/playlistService";
+import trackService from "../../services/item/trackService";
 
 const routes = Router();
 const prisma = new PrismaClient();
@@ -67,9 +67,9 @@ routes.post("/:userId/queue/albums", async (req, res) => {
     ]);
     const maxQueuePosition = Math.max(maxAlbumPosition || 0, maxArtistPosition || 0, maxPlaylistPosition || 0, maxTrackPosition || 0);
     const newAlbumPosition = (maxQueuePosition || 0) + 1;
-    const newQueueAlbum = await queueService.createQueueAlbum(queueId, newAlbum.spotifyId, newAlbumPosition);
+    const newQueueItem = await queueService.createQueueAlbum(queueId, newAlbum.spotifyId, newAlbumPosition);
 
-    return res.status(201).json(newQueueAlbum);
+    return res.status(201).json({newQueueItem: {queueItemId: newQueueItem.queueAlbumId, ...newQueueItem}});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -106,9 +106,9 @@ routes.post("/:userId/queue/artists", async (req, res) => {
     ]);
     const maxQueuePosition = Math.max(maxAlbumPosition || 0, maxArtistPosition || 0, maxPlaylistPosition || 0, maxTrackPosition || 0);
     const newArtistPosition = (maxQueuePosition || 0) + 1;
-    const newQueueArtist = await queueService.createQueueArtist(queueId, newArtist.spotifyId, newArtistPosition);
+    const newQueueItem = await queueService.createQueueArtist(queueId, newArtist.spotifyId, newArtistPosition);
 
-    return res.status(201).json(newQueueArtist);
+    return res.status(201).json({newQueueItem: {queueItemId: newQueueItem.queueArtistId, ...newQueueItem}});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -146,9 +146,9 @@ routes.post("/:userId/queue/playlists", async (req, res) => {
     const maxQueuePosition = Math.max(maxAlbumPosition || 0, maxArtistPosition || 0, maxPlaylistPosition || 0, maxTrackPosition || 0);
 
     const newPlaylistPosition = (maxQueuePosition || 0) + 1;
-    const newQueuePlaylist = await queueService.createQueuePlaylist(queueId, newPlaylist.spotifyId, newPlaylistPosition);
+    const newQueueItem = await queueService.createQueuePlaylist(queueId, newPlaylist.spotifyId, newPlaylistPosition);
 
-    return res.status(201).json(newQueuePlaylist);
+    return res.status(201).json({newQueueItem: {queueItemId: newQueueItem.queuePlaylistId, ...newQueueItem}});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -185,9 +185,9 @@ routes.post("/:userId/queue/tracks", async (req, res) => {
     ]);
     const maxQueuePosition = Math.max(maxAlbumPosition || 0, maxArtistPosition || 0, maxPlaylistPosition || 0, maxTrackPosition || 0);
     const newTrackPosition = (maxQueuePosition || 0) + 1;
-    const newQueueTrack = await queueService.createQueueTrack(queueId, newTrack.spotifyId, newTrackPosition);
+    const newQueueItem = await queueService.createQueueTrack(queueId, newTrack.spotifyId, newTrackPosition);
 
-    return res.status(201).json(newQueueTrack);
+    return res.status(201).json({newQueueItem: {queueItemId: newQueueItem.queueTrackId, ...newQueueItem}});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -258,70 +258,6 @@ routes.delete("/:userId/queue/tracks/:spotifyId", async (req, res) => {
   }
 });
 
-// Mark an album as played
-routes.put("/:userId/queue/albums/:spotifyId/played", async (req, res) => {
-  try {
-    const { userId, spotifyId } = req.params;
-
-    const queueId = await queueService.getQueueId(userId);
-
-    await queueService.markQueueAlbumAsPlayed(queueId, spotifyId);
-
-    return res.status(200).json({ message: "Album marked as played successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
-// Mark an artist as played
-routes.put("/:userId/queue/artists/:spotifyId/played", async (req, res) => {
-  try {
-    const { userId, spotifyId } = req.params;
-
-    const queueId = await queueService.getQueueId(userId);
-
-    await queueService.markQueueArtistAsPlayed(queueId, spotifyId);
-
-    return res.status(200).json({ message: "Artist marked as played successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
-// Mark a playlist as played
-routes.put("/:userId/queue/playlists/:spotifyId/played", async (req, res) => {
-  try {
-    const { userId, spotifyId } = req.params;
-
-    const queueId = await queueService.getQueueId(userId);
-
-    await queueService.markQueuePlaylistAsPlayed(queueId, spotifyId);
-
-    return res.status(200).json({ message: "Playlist marked as played successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
-// Mark a track as played
-routes.put("/:userId/queue/tracks/:spotifyId/played", async (req, res) => {
-  try {
-    const { userId, spotifyId } = req.params;
-
-    const queueId = await queueService.getQueueId(userId);
-
-    await queueService.markQueueTrackAsPlayed(queueId, spotifyId);
-
-    return res.status(200).json({ message: "Track marked as played successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Sorry, something went wrong :/" });
-  }
-});
-
 // Retrieve a user's queue
 routes.get("/:userId/queue", async (req, res) => {
   try {
@@ -333,19 +269,51 @@ routes.get("/:userId/queue", async (req, res) => {
     const [queueAlbums, queueArtists, queuePlaylists, queueTracks] = await Promise.all([
       prisma.queueAlbum.findMany({
         where: { queueId },
-        include: { album: true },
+        include: {
+          album: {
+            include: {
+              userPlays: {
+                where: { userId },
+              },
+            },
+          },
+        },
       }),
       prisma.queueArtist.findMany({
         where: { queueId },
-        include: { artist: true },
+        include: {
+          artist: {
+            include: {
+              userPlays: {
+                where: { userId },
+              },
+            },
+          },
+        },
       }),
       prisma.queuePlaylist.findMany({
         where: { queueId },
-        include: { playlist: true },
+        include: {
+          playlist: {
+            include: {
+              userPlays: {
+                where: { userId },
+              },
+            },
+          },
+        },
       }),
       prisma.queueTrack.findMany({
         where: { queueId },
-        include: { track: true },
+        include: {
+          track: {
+            include: {
+              userPlays: {
+                where: { userId },
+              },
+            },
+          },
+        },
       }),
     ]);
 
@@ -353,29 +321,45 @@ routes.get("/:userId/queue", async (req, res) => {
     const transformedQueueAlbums = queueAlbums.map(queueAlbum => ({
       queueItemId: queueAlbum.queueAlbumId,
       position: queueAlbum.position,
-      isPlayed: queueAlbum.isPlayed,
-      itemData: queueAlbum.album,
+      queuedAt: queueAlbum.createdAt,
+      itemData: {
+        ...queueAlbum.album,
+        userPlays: undefined,
+      },
+      playedByUser: !!queueAlbum.album.userPlays.length,
     }));
 
     const transformedQueueArtists = queueArtists.map(queueArtist => ({
       queueItemId: queueArtist.queueArtistId,
       position: queueArtist.position,
-      isPlayed: queueArtist.isPlayed,
-      itemData: queueArtist.artist,
+      queuedAt: queueArtist.createdAt,
+      itemData: {
+        ...queueArtist.artist,
+        userPlays: undefined,
+      },
+      playedByUser: !!queueArtist.artist.userPlays.length,
     }));
 
     const transformedQueuePlaylists = queuePlaylists.map(queuePlaylist => ({
       queueItemId: queuePlaylist.queuePlaylistId,
       position: queuePlaylist.position,
-      isPlayed: queuePlaylist.isPlayed,
-      itemData: queuePlaylist.playlist,
+      queuedAt: queuePlaylist.createdAt,
+      itemData: {
+        ...queuePlaylist.playlist,
+        userPlays: undefined,
+      },
+      playedByUser: !!queuePlaylist.playlist.userPlays.length,
     }));
 
     const transformedQueueTracks = queueTracks.map(queueTrack => ({
       queueItemId: queueTrack.queueTrackId,
       position: queueTrack.position,
-      isPlayed: queueTrack.isPlayed,
-      itemData: queueTrack.track,
+      queuedAt: queueTrack.createdAt,
+      itemData: {
+        ...queueTrack.track,
+        userPlays: undefined,
+      },
+      playedByUser: !!queueTrack.track.userPlays.length,
     }));
 
     // Combine and sort the results by position

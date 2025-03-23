@@ -6,11 +6,14 @@ import folderRoutes from "./routes/folder";
 import userRoutes from "./routes/user"
 import queueRoutes from "./routes/queue"
 import spotifyRoutes from "./routes/spotify"
-import boxArtists from "./routes/box/artists";
-import boxAlbums from "./routes/box/albums";
-import boxTracks from "./routes/box/tracks";
-import boxPlaylists from "./routes/box/playlists";
-import itemRoutes from "./routes/item";
+import boxArtistRoutes from "./routes/box/artists";
+import boxAlbumRoutes from "./routes/box/albums";
+import boxTrackRoutes from "./routes/box/tracks";
+import boxPlaylistRoutes from "./routes/box/playlists";
+import albumRoutes from "./routes/item/albums";
+import artistRoutes from "./routes/item/artists";
+import trackRoutes from "./routes/item/tracks";
+import playlistRoutes from "./routes/item/playlists";
 
 const prisma = new PrismaClient();
 
@@ -31,11 +34,14 @@ app.get("/api", async (req, res) => {
 });
 
 app.use("/api/boxes", boxRoutes);
-app.use("/api/boxes", boxArtists);
-app.use("/api/boxes", boxAlbums);
-app.use("/api/boxes", boxTracks);
-app.use("/api/boxes", boxPlaylists);
-app.use("/api/items", itemRoutes);
+app.use("/api/boxes", boxArtistRoutes);
+app.use("/api/boxes", boxAlbumRoutes);
+app.use("/api/boxes", boxTrackRoutes);
+app.use("/api/boxes", boxPlaylistRoutes);
+app.use("/api/items", albumRoutes);
+app.use("/api/items", artistRoutes);
+app.use("/api/items", trackRoutes);
+app.use("/api/items", playlistRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", queueRoutes);

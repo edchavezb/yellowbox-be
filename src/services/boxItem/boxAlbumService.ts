@@ -2,50 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const albumService = {
-  async createAlbum(albumData: any) {
-    const {
-      spotifyId,
-      name,
-      images,
-      type,
-      albumType,
-      artists,
-      releaseDate,
-      totalTracks
-    } = albumData;
-    const newAlbum = await prisma.album.upsert({
-      where: { spotifyId },
-      update: {},
-      create: {
-        spotifyId,
-        name,
-        images,
-        type,
-        albumType,
-        artists,
-        releaseDate,
-        totalTracks
-      }
-    });
-
-    return newAlbum;
-  },
-  async updateAlbumImages(spotifyId: string, images: any) {
-    return await prisma.album.update({
-      where: {
-        spotifyId
-      },
-      data: {
-        images: images
-      },
-    });
-  },
-  async deleteAlbum(spotifyId: string) {
-    await prisma.album.delete({
-      where: { spotifyId },
-    });
-  },
+const boxAlbumService = {
   async createBoxAlbum(boxId: string, spotifyId: string, position: number) {
     const newBoxAlbum = await prisma.boxAlbum.create({
       data: {
@@ -252,4 +209,4 @@ const albumService = {
   },
 };
 
-export default albumService;
+export default boxAlbumService;

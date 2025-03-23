@@ -9,25 +9,23 @@ datasource db {
 }
 
 model User {
-  userId           String                     @id @default(uuid()) @db.Uuid
-  firebaseId       String                     @unique
-  username         String                     @unique
-  email            String                     @unique
-  firstName        String?
-  lastName         String?
-  imageUrl         String?
-  accountData      UserAccountManagementData?
-  billing          UserBilling?
-  spotifyAccount   UserSpotifyAccount?
-  queue            UserQueue?
-  folders          Folder[]
-  boxes            Box[]
-  UserTag          UserTag[]
-  ItemPlayedStatus ItemPlayedStatus[]
-  PlayedArtist     PlayedArtist[]
-  PlayedAlbum      PlayedAlbum[]
-  PlayedTrack      PlayedTrack[]
-  PlayedPlaylist   PlayedPlaylist[]
+  userId          String                     @id @default(uuid()) @db.Uuid
+  firebaseId      String                     @unique
+  username        String                     @unique
+  email           String                     @unique
+  firstName       String?
+  lastName        String?
+  imageUrl        String?
+  accountData     UserAccountManagementData?
+  billing         UserBilling?
+  spotifyAccount  UserSpotifyAccount?
+  queue           UserQueue?
+  folders         Folder[]
+  boxes           Box[]
+  playedArtists   PlayedArtist[]
+  playedAlbums    PlayedAlbum[]
+  playedTracks    PlayedTrack[]
+  playedPlaylists PlayedPlaylist[]
 }
 
 model UserAccountManagementData {
@@ -375,53 +373,6 @@ model Track {
   boxes            BoxTrack[]
   queues           QueueTrack[]
   userPlays        PlayedTrack[]
-}
-
-model UserTag {
-  tagId   String    @id @default(uuid()) @db.Uuid
-  userId  String    @db.Uuid
-  tag     String
-  user    User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  ItemTag ItemTag[]
-}
-
-model ItemTag {
-  itemTagId String  @id @default(uuid()) @db.Uuid
-  tagId     String  @db.Uuid
-  itemId    String
-  tag       String
-  itemType  String
-  userTag   UserTag @relation(fields: [tagId], references: [tagId], onDelete: Cascade)
-}
-
-model ItemPlayedStatus {
-  userItemId   String       @id @default(uuid()) @db.Uuid
-  userId       String       @db.Uuid
-  itemId       String
-  itemType     String
-  isPlayed     Boolean      @default(false)
-  lastPlayedAt DateTime?
-  user         User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  ItemReview   ItemReview[]
-
-  @@unique([userId, itemId])
-}
-
-model ItemReview {
-  reviewId                   String            @id @default(uuid()) @db.Uuid
-  userItemId                 String            @db.Uuid
-  content                    String
-  reviewSentiment            ReviewSentiment
-  createdAt                  DateTime          @default(now())
-  deletedAt                  DateTime?
-  ItemPlayedStatus           ItemPlayedStatus? @relation(fields: [itemPlayedStatusUserItemId], references: [userItemId])
-  itemPlayedStatusUserItemId String?           @db.Uuid
-}
-
-enum ReviewSentiment {
-  LIKE
-  DISLIKE
-  NEUTRAL
 }
 
 enum AccountTiers {

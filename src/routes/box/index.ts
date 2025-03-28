@@ -6,13 +6,14 @@ import subsectionService from "../../services/box/subsectionService";
 import boxService from "../../services/box/boxService";
 import userService from "../../services/user/userService";
 import folderService from "../../services/folder/folderService";
+import attachCurrentUser from "../../middleware/attachCurrentUser";
 
 const routes = Router();
 const prisma = new PrismaClient();
 
 // TESTED - Id moved to params, not query
 // Get a single box by id
-routes.get("/:boxId", authenticate, async (req, res) => {
+routes.get("/:boxId", attachCurrentUser, async (req, res) => {
   try {
     const { boxId } = req.params;
     const viewingUser: User = req.user;

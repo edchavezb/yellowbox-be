@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function (req: Request, res: Response, next: NextFunction) {
+export default async function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
     const firebaseToken = req.headers.authorization?.split(" ")[1];
 

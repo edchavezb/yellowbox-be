@@ -174,6 +174,143 @@ const queueService = {
     });
   },
 
+  async updateQueueItemPosition(queueId: string, itemId: string, itemType: "album" | "artist" | "playlist" | "track", targetItemId: string) {
+    // Find the target item's position across all tables
+    const [targetAlbum, targetArtist, targetPlaylist, targetTrack] = await Promise.all([
+      prisma.queueAlbum.findFirst({ where: { queueId, albumId: targetItemId } }),
+      prisma.queueArtist.findFirst({ where: { queueId, artistId: targetItemId } }),
+      prisma.queuePlaylist.findFirst({ where: { queueId, playlistId: targetItemId } }),
+      prisma.queueTrack.findFirst({ where: { queueId, trackId: targetItemId } }),
+    ]);
+  
+    // Determine the target position
+    const targetItem = targetAlbum || targetArtist || targetPlaylist || targetTrack;
+    if (!targetItem) {
+      throw new Error(`Target item not found in the queue`);
+    }
+    const newPosition = targetItem.position;
+  
+    // Find the current item in the queue
+    let currentItem;
+    if (itemType === "album") {
+      currentItem = await prisma.queueAlbum.findFirst({
+        where: { queueId, albumId: itemId },
+      });
+    } else if (itemType === "artist") {
+      currentItem = await prisma.queueArtist.findFirst({
+        where: { queueId, artistId: itemId },
+      });
+    } else if (itemType === "playlist") {
+      currentItem = await prisma.queuePlaylist.findFirst({
+        where: { queueId, playlistId: itemId },
+      });
+    } else if (itemType === "track") {
+      currentItem = await prisma.queueTrack.findFirst({
+        where: { queueId, trackId: itemId },
+      });
+    }
+  
+    if (!currentItem) {
+      throw new Error(`${itemType} not found in the queue`);
+    }
+  
+    const currentPosition = currentItem.position;
+  
+    if (newPosition === currentPosition) {
+      return;
+    }
+  
+    // Adjust positions for all items in the queue
+    if (newPosition < currentPosition) {
+      // Moving to a lower position
+      await Promise.all([
+        prisma.queueAlbum.updateMany({
+          where: {
+            queueId,
+            position: { gte: newPosition, lt: currentPosition },
+          },
+          data: { position: { increment: 1 } },
+        }),
+        prisma.queueArtist.updateMany({
+          where: {
+            queueId,
+            position: { gte: newPosition, lt: currentPosition },
+          },
+          data: { position: { increment: 1 } },
+        }),
+        prisma.queuePlaylist.updateMany({
+          where: {
+            queueId,
+            position: { gte: newPosition, lt: currentPosition },
+          },
+          data: { position: { increment: 1 } },
+        }),
+        prisma.queueTrack.updateMany({
+          where: {
+            queueId,
+            position: { gte: newPosition, lt: currentPosition },
+          },
+          data: { position: { increment: 1 } },
+        }),
+      ]);
+    } else if (newPosition > currentPosition) {
+      // Moving to a higher position
+      await Promise.all([
+        prisma.queueAlbum.updateMany({
+          where: {
+            queueId,
+            position: { gt: currentPosition, lte: newPosition },
+          },
+          data: { position: { decrement: 1 } },
+        }),
+        prisma.queueArtist.updateMany({
+          where: {
+            queueId,
+            position: { gt: currentPosition, lte: newPosition },
+          },
+          data: { position: { decrement: 1 } },
+        }),
+        prisma.queuePlaylist.updateMany({
+          where: {
+            queueId,
+            position: { gt: currentPosition, lte: newPosition },
+          },
+          data: { position: { decrement: 1 } },
+        }),
+        prisma.queueTrack.updateMany({
+          where: {
+            queueId,
+            position: { gt: currentPosition, lte: newPosition },
+          },
+          data: { position: { decrement: 1 } },
+        }),
+      ]);
+    }
+  
+    // Update the item's position
+    if (itemType === "album") {
+      await prisma.queueAlbum.update({
+        where: { albumId_queueId: { albumId: itemId, queueId } },
+        data: { position: newPosition },
+      });
+    } else if (itemType === "artist") {
+      await prisma.queueArtist.update({
+        where: { artistId_queueId: { artistId: itemId, queueId } },
+        data: { position: newPosition },
+      });
+    } else if (itemType === "playlist") {
+      await prisma.queuePlaylist.update({
+        where: { playlistId_queueId: { playlistId: itemId, queueId } },
+        data: { position: newPosition },
+      });
+    } else if (itemType === "track") {
+      await prisma.queueTrack.update({
+        where: { trackId_queueId: { trackId: itemId, queueId } },
+        data: { position: newPosition },
+      });
+    }
+  },
+
   // Get total count of items in a user's queue
   async getTotalQueueItemCount(queueId: string) {
     const [albumCount, artistCount, playlistCount, trackCount] = await Promise.all([

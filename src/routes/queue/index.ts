@@ -258,6 +258,27 @@ routes.delete("/:userId/queue/tracks/:spotifyId", async (req, res) => {
   }
 });
 
+// Reorder an item in the queue
+routes.put("/:userId/queue/reorder", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { itemId, itemType, targetItemId } = req.body;
+
+    if (!["album", "artist", "playlist", "track"].includes(itemType)) {
+      return res.status(400).json({ error: "Invalid item type" });
+    }
+
+    const queueId = await queueService.getQueueId(userId);
+
+    await queueService.updateQueueItemPosition(queueId, itemId, itemType as "album" | "artist" | "playlist" | "track", targetItemId);
+
+    return res.status(200).json({ message: "Queue item position updated successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // Retrieve a user's queue
 routes.get("/:userId/queue", async (req, res) => {
   try {

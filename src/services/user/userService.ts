@@ -55,6 +55,42 @@ const userService = {
 
     return user;
   },
+  async getUserDataByUsername(username: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        username,
+      },
+      include: {
+        folders: {
+          select: {
+            folderId: true,
+            name: true,
+            isPublic: true,
+            creator: true,
+            description: true,
+          },
+        },
+        boxes: {
+          where: {
+            deletedAt: null,
+          },
+          select: {
+            boxId: true,
+            name: true,
+            position: true,
+            folderPosition: true,
+            folderId: true,
+            isPublic: true,
+          },
+          orderBy: {
+            position: "asc",
+          },
+        },
+      },
+    });
+  
+    return user;
+  },
   async getUserWithDashboardBoxes(userId: string) {
     const user = await prisma.user.findFirst({
       where: {

@@ -5,6 +5,7 @@ import { SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
 import userService from "../../services/user/userService";
 import boxService from "../../services/box/boxService";
 import folderService from "../../services/folder/folderService";
+import attachCurrentUser from "../../middleware/attachCurrentUser";
 
 const routes = Router();
 
@@ -15,6 +16,26 @@ routes.get("/me", authenticate, async (req, res) => {
   const appUser = await userService.getUserData(userId);
 
   res.status(200).json({ appUser });
+});
+
+// Get user data by username
+routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { userId } = req.user ?? {};
+
+    // Retrieve user data by username
+    const userData = await userService.getUserDataByUsername(username);
+
+    if (!userData) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(200).json({pageUser: userData, isFollowed: false});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
 });
 
 // TESTED

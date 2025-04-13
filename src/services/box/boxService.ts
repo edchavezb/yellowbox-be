@@ -4,7 +4,7 @@ import { BoxCreateDTO } from "../../types/interfaces";
 const prisma = new PrismaClient();
 
 const boxService = {
-    async getBoxById(boxId: string, viewingUserId?: string) {
+  async getBoxById(boxId: string, viewingUserId?: string) {
     const box = await prisma.box.findFirst({
       where: {
         AND: {
@@ -36,10 +36,10 @@ const boxService = {
             artist: {
               include: viewingUserId
                 ? {
-                    userPlays: {
-                      where: { userId: viewingUserId },
-                    },
-                  }
+                  userPlays: {
+                    where: { userId: viewingUserId },
+                  },
+                }
                 : undefined,
             },
             subsections: {
@@ -57,10 +57,10 @@ const boxService = {
             album: {
               include: viewingUserId
                 ? {
-                    userPlays: {
-                      where: { userId: viewingUserId },
-                    },
-                  }
+                  userPlays: {
+                    where: { userId: viewingUserId },
+                  },
+                }
                 : undefined,
             },
             subsections: {
@@ -78,10 +78,10 @@ const boxService = {
             track: {
               include: viewingUserId
                 ? {
-                    userPlays: {
-                      where: { userId: viewingUserId },
-                    },
-                  }
+                  userPlays: {
+                    where: { userId: viewingUserId },
+                  },
+                }
                 : undefined,
             },
             subsections: {
@@ -99,10 +99,10 @@ const boxService = {
             playlist: {
               include: viewingUserId
                 ? {
-                    userPlays: {
-                      where: { userId: viewingUserId },
-                    },
-                  }
+                  userPlays: {
+                    where: { userId: viewingUserId },
+                  },
+                }
                 : undefined,
             },
             subsections: {
@@ -144,10 +144,10 @@ const boxService = {
                     track: {
                       include: viewingUserId
                         ? {
-                            userPlays: {
-                              where: { userId: viewingUserId },
-                            },
-                          }
+                          userPlays: {
+                            where: { userId: viewingUserId },
+                          },
+                        }
                         : undefined,
                     },
                   },
@@ -168,10 +168,10 @@ const boxService = {
                     artist: {
                       include: viewingUserId
                         ? {
-                            userPlays: {
-                              where: { userId: viewingUserId },
-                            },
-                          }
+                          userPlays: {
+                            where: { userId: viewingUserId },
+                          },
+                        }
                         : undefined,
                     },
                   },
@@ -193,10 +193,10 @@ const boxService = {
                     album: {
                       include: viewingUserId
                         ? {
-                            userPlays: {
-                              where: { userId: viewingUserId },
-                            },
-                          }
+                          userPlays: {
+                            where: { userId: viewingUserId },
+                          },
+                        }
                         : undefined,
                     },
                   },
@@ -218,10 +218,10 @@ const boxService = {
                     playlist: {
                       include: viewingUserId
                         ? {
-                            userPlays: {
-                              where: { userId: viewingUserId },
-                            },
-                          }
+                          userPlays: {
+                            where: { userId: viewingUserId },
+                          },
+                        }
                         : undefined,
                     },
                   },
@@ -235,7 +235,7 @@ const boxService = {
         },
       },
     });
-  
+
     if (box) {
       const responseArtists = box.artists.map((item) =>
         flattenBoxItem(
@@ -287,7 +287,7 @@ const boxService = {
         };
         return reducedSubsection;
       });
-  
+
       return {
         ...box,
         artists: responseArtists,
@@ -888,6 +888,56 @@ const boxService = {
 
     // Execute the cloning operations in a transaction
     await prisma.$transaction(operations);
+  },
+  async isBoxFollowedByUser(userId: string, boxId: string) {
+    const boxFollow = await prisma.boxFollow.findFirst({  
+      where: {
+        userId,
+        boxId,
+      },
+    });
+    return !!boxFollow;
+  },
+  async followBox(userId: string, boxId: string) {
+    const existingFollow = await prisma.boxFollow.findFirst({
+      where: {
+        userId,
+        boxId,
+      },
+    });
+
+    if (existingFollow) {
+      throw new Error("You are already following this box.");
+    }
+
+    await prisma.boxFollow.create({
+      data: {
+        userId,
+        boxId,
+      },
+    });
+
+    return { message: "Successfully followed the box." };
+  },
+  async unfollowBox(userId: string, boxId: string) {
+    const existingFollow = await prisma.boxFollow.findFirst({
+      where: {
+        userId,
+        boxId,
+      },
+    });
+
+    if (!existingFollow) {
+      throw new Error("You are not following this box.");
+    }
+
+    await prisma.boxFollow.delete({
+      where: {
+        boxFollowId: existingFollow.boxFollowId,
+      },
+    });
+
+    return { message: "Successfully unfollowed the box." };
   }
 };
 

@@ -49,6 +49,25 @@ const userService = {
             }
           }
         },
+        billing: true,
+        accountData: true,
+        spotifyAccount: true
+      }
+    });
+
+    return user;
+  },
+  getMyFollowedItems: async (userId: string) => {
+    const user = await prisma.user.findFirst({
+      where: {
+        userId
+      },
+      select: {
+        userId: true,
+        username: false, 
+        imageUrl: false,
+        firstName: false,
+        lastName: false,
         followedUsers: {
           select: {
             createdAt: true,
@@ -66,7 +85,7 @@ const userService = {
         followers: {
           select: {
             createdAt: true,
-            followedUser: {
+            follower: {
               select: {
                 userId: true,
                 username: true,
@@ -98,12 +117,8 @@ const userService = {
             }
           }
         },
-        billing: true,
-        accountData: true,
-        spotifyAccount: true
       }
     });
-
     return user;
   },
   async getUserDataById(userId: string) {
@@ -139,7 +154,7 @@ const userService = {
         },
       },
     });
-  
+
     return user;
   },
   async getUserDataByUsername(username: string) {
@@ -175,7 +190,7 @@ const userService = {
         },
       },
     });
-  
+
     return user;
   },
   async getUserWithDashboardBoxes(userId: string) {
@@ -229,7 +244,7 @@ const userService = {
         email
       }
     });
-  
+
     // Use the userId to create user billing, user account management data, and user queue
     await prisma.$transaction([
       prisma.userBilling.create({
@@ -248,7 +263,7 @@ const userService = {
         }
       })
     ]);
-  
+
     return newUser;
   },
   async deleteUser(userId: string) {
@@ -259,7 +274,7 @@ const userService = {
     });
   },
   async updateUserProfileInfo(userId: string, updatedInfo: any) {
-    const {firstName, lastName} = updatedInfo;
+    const { firstName, lastName } = updatedInfo;
     const updatedUser = await prisma.user.update({
       where: {
         userId
@@ -313,7 +328,7 @@ const userService = {
     return updatedUserAccountData;
   },
   async linkSpotifyAccount(userId: string, spotifyData: any) {
-    const {refreshToken, spotifyId} = spotifyData;
+    const { refreshToken, spotifyId } = spotifyData;
     const updatedUserSpotifyAccount = await prisma.userSpotifyAccount.upsert({
       where: {
         userId
@@ -345,7 +360,7 @@ const userService = {
         followedUserId,
       },
     });
-  
+
     return !!followRecord;
   },
   async followUser(followerId: string, followedUserId: string) {

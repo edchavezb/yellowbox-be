@@ -18,6 +18,14 @@ routes.get("/me", authenticate, async (req, res) => {
   res.status(200).json({ appUser });
 });
 
+// Get the authenticated user's followed items
+routes.get("/me/followed-page", authenticate, async (req, res) => {
+  const { userId } = req.user;
+  const followedItems = await userService.getMyFollowedItems(userId);
+
+  res.status(200).json(followedItems);
+});
+
 // Get user data by username
 routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
   try {
@@ -31,7 +39,7 @@ routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    return res.status(200).json({pageUser: userData, isFollowed});
+    return res.status(200).json({ pageUser: userData, isFollowed });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

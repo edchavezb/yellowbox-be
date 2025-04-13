@@ -23,8 +23,11 @@ routes.get("/:boxId", attachCurrentUser, async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
+    const isFollowedByUser = viewingUser ? await boxService.isBoxFollowedByUser(viewingUser.userId, boxId) : false;
+
     return res.status(200).json({
-      boxData
+      boxData,
+      isFollowedByUser
     });
 
   } catch (error) {
@@ -278,6 +281,44 @@ routes.post("/:boxId/clone", async (req, res) => {
     return res.status(201).json({ boxId: newBoxId, name: newBoxName, position, folderId, folderPosition });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Follow a box
+routes.post("/:boxId/follow", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId; // Retrieved from the authenticate middleware
+    const { boxId } = req.params;
+
+    // Call the service method to follow the box
+    const result = await boxService.followBox(userId, boxId);
+
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error(error);
+    if (error instanceof Error && error.message === "You are already following this box.") {
+      return res.status(400).json({ error: error.message });
+    }
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Unfollow a box
+routes.delete("/:boxId/unfollow", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId; // Retrieved from the authenticate middleware
+    const { boxId } = req.params;
+
+    // Call the service method to unfollow the box
+    const result = await boxService.unfollowBox(userId, boxId);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error(error);
+    if (error instanceof Error && error.message === "You are not following this box.") {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });

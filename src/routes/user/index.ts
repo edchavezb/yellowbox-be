@@ -13,9 +13,17 @@ const routes = Router();
 // Get the authenticated user's data
 routes.get("/me", authenticate, async (req, res) => {
   const { userId } = req.user;
-  const appUser = await userService.getUserData(userId);
+  const appUser = await userService.getMyUserData(userId);
 
   res.status(200).json({ appUser });
+});
+
+// Get the authenticated user's followed items
+routes.get("/me/followed-page", authenticate, async (req, res) => {
+  const { userId } = req.user;
+  const followedItems = await userService.getMyFollowedItems(userId);
+
+  res.status(200).json(followedItems);
 });
 
 // Get user data by username
@@ -24,14 +32,14 @@ routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
     const { username } = req.params;
     const { userId } = req.user ?? {};
 
-    // Retrieve user data by username
     const userData = await userService.getUserDataByUsername(username);
+    const isFollowed = userId ? await userService.isUserFollowed(userId, userData?.userId ?? "") : false;
 
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    return res.status(200).json({pageUser: userData, isFollowed: false});
+    return res.status(200).json({ pageUser: userData, isFollowed });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -249,6 +257,49 @@ routes.put("/:userId/boxes/:boxId/reorder", async (req, res) => {
     return res.status(200).json({ message: "Box reordered successfully" });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Follow a user
+routes.post("/:followedUserId/follow", authenticate, async (req, res) => {
+  try {
+    const followerId = req.user.userId;
+    const { followedUserId } = req.params;
+
+    if (followerId === followedUserId) {
+      return res.status(400).json({ error: "You cannot follow yourself." });
+    }
+
+    await userService.followUser(followerId, followedUserId);
+
+    const userData = await userService.getUserDataById(followedUserId);
+    const isFollowed = followedUserId ? await userService.isUserFollowed(followerId, followedUserId) : false;
+
+    return res.status(201).json({ pageUser: userData, isFollowed });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Unfollow a user
+routes.delete("/:followedUserId/unfollow", authenticate, async (req, res) => {
+  try {
+    const followerId = req.user.userId;
+    const { followedUserId } = req.params;
+
+    await userService.unfollowUser(followerId, followedUserId);
+
+    const userData = await userService.getUserDataById(followedUserId);
+    const isFollowed = followedUserId ? await userService.isUserFollowed(followerId, followedUserId) : false;
+
+    return res.status(201).json({ pageUser: userData, isFollowed });
+  } catch (error) {
+    console.error(error);
+    if (error instanceof Error && error.message === "You are not following this user.") {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
   }
 });

@@ -27,6 +27,9 @@ model User {
   playedAlbums    PlayedAlbum[]
   playedTracks    PlayedTrack[]
   playedPlaylists PlayedPlaylist[]
+  followers       UserFollow[]               @relation("UserFollowing")
+  followedUsers   UserFollow[]               @relation("UserFollowers")
+  followedBoxes   BoxFollow[]
 }
 
 model UserAccountManagementData {
@@ -66,6 +69,30 @@ model UserQueue {
   user          User            @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
+model UserFollow {
+  userFollowId   String   @id @default(uuid()) @db.Uuid
+  followerId     String   @db.Uuid
+  followedUserId String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  follower     User @relation("UserFollowers", fields: [followerId], references: [userId])
+  followedUser User @relation("UserFollowing", fields: [followedUserId], references: [userId])
+
+  @@unique([followerId, followedUserId])
+}
+
+model BoxFollow {
+  boxFollowId String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  boxId       String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [userId])
+  box  Box  @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
+
+  @@unique([userId, boxId])
+}
+
 model Folder {
   folderId    String   @id @default(uuid()) @db.Uuid
   creatorId   String   @db.Uuid
@@ -96,6 +123,7 @@ model Box {
   playlists       BoxPlaylist[]
   subsections     BoxSubsection[]
   sectionSettings BoxSectionSettings[]
+  followers       BoxFollow[]
 }
 
 model DeletedBox {

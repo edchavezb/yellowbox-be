@@ -6,6 +6,7 @@ import userService from "../../services/user/userService";
 import boxService from "../../services/box/boxService";
 import folderService from "../../services/folder/folderService";
 import attachCurrentUser from "../../middleware/attachCurrentUser";
+import avatarUploadService from "../../services/user/avatarUploadService";
 
 const routes = Router();
 
@@ -301,6 +302,30 @@ routes.delete("/:followedUserId/unfollow", authenticate, async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Upload user avatar
+routes.post("/upload-user-image", authenticate, avatarUploadService.upload.single("avatar"), async (req, res) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file uploaded." });
+    }
+
+    const userId = req.user.userId;
+    const currentImageUrl = req.user.imageUrl;
+
+    const imageUrl = await avatarUploadService.uploadAvatar(file, userId, currentImageUrl);
+
+    // Update the user's image in the database
+    await userService.updateUserImage(userId, imageUrl);
+
+    return res.status(200).json({ message: "Avatar uploaded and updated successfully.", url: imageUrl});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to upload and update avatar." });
   }
 });
 

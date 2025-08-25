@@ -20,27 +20,24 @@ routes.get("/me", authenticate, async (req, res) => {
 });
 
 // Get the authenticated user's followed items
-routes.get("/me/followed-page", authenticate, async (req, res) => {
+routes.get("/me/followed-boxes", authenticate, async (req, res) => {
   const { userId } = req.user;
-  const followedItems = await userService.getMyFollowedItems(userId);
+  const followedItems = await userService.getMyFollowedBoxes(userId);
 
-  res.status(200).json(followedItems);
+  res.status(200).json({followedBoxes: followedItems});
 });
 
 // Get user data by username
 routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
   try {
     const { username } = req.params;
-    const { userId } = req.user ?? {};
-
     const userData = await userService.getUserDataByUsername(username);
-    const isFollowed = userId ? await userService.isUserFollowed(userId, userData?.userId ?? "") : false;
 
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    return res.status(200).json({ pageUser: userData, isFollowed });
+    return res.status(200).json({ pageUser: userData });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -274,10 +271,9 @@ routes.post("/:followedUserId/follow", authenticate, async (req, res) => {
 
     await userService.followUser(followerId, followedUserId);
 
-    const userData = await userService.getUserDataById(followedUserId);
-    const isFollowed = followedUserId ? await userService.isUserFollowed(followerId, followedUserId) : false;
+    const updatedFollowedUsers = await userService.getMyFollowedUsers(followerId);
 
-    return res.status(201).json({ pageUser: userData, isFollowed });
+    return res.status(200).json({ followedUsers: updatedFollowedUsers });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });
@@ -290,12 +286,11 @@ routes.delete("/:followedUserId/unfollow", authenticate, async (req, res) => {
     const followerId = req.user.userId;
     const { followedUserId } = req.params;
 
-    await userService.unfollowUser(followerId, followedUserId);
+    const targetUser = await userService.unfollowUser(followerId, followedUserId);
 
-    const userData = await userService.getUserDataById(followedUserId);
-    const isFollowed = followedUserId ? await userService.isUserFollowed(followerId, followedUserId) : false;
+    const updatedFollowedUsers = await userService.getMyFollowedUsers(followerId);
 
-    return res.status(201).json({ pageUser: userData, isFollowed });
+    return res.status(200).json({ followedUsers: updatedFollowedUsers });
   } catch (error) {
     console.error(error);
     if (error instanceof Error && error.message === "You are not following this user.") {

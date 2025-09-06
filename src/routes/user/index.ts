@@ -300,6 +300,25 @@ routes.delete("/:followedUserId/unfollow", authenticate, async (req, res) => {
   }
 });
 
+// Search users
+routes.get("/search", authenticate, async (req, res) => {
+  try {
+    const { query } = req.query;
+    const currentUserId = req.user.userId;
+
+    if (typeof query !== "string" || query.trim() === "") {
+      return res.status(400).json({ error: "Invalid search query." });
+    }
+
+    const users = await userService.searchUsers(query as string, currentUserId);
+
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // Upload user avatar
 routes.post("/upload-user-image", authenticate, avatarUploadService.upload.single("avatar"), async (req, res) => {
   try {

@@ -910,6 +910,15 @@ const boxService = {
       throw new Error("You are already following this box.");
     }
 
+    const box = await prisma.box.findUnique({
+      where: { boxId },
+      select: { name: true, boxId: true }
+    });
+
+    if (!box) {
+      throw new Error("Box not found.");
+    }
+
     await prisma.boxFollow.create({
       data: {
         userId,
@@ -917,7 +926,11 @@ const boxService = {
       },
     });
 
-    return { message: "Successfully followed the box." };
+    return {
+      message: "Successfully followed the box.",
+      boxId: box.boxId,
+      boxName: box.name
+    };
   },
   async unfollowBox(userId: string, boxId: string) {
     const existingFollow = await prisma.boxFollow.findFirst({
@@ -931,13 +944,26 @@ const boxService = {
       throw new Error("You are not following this box.");
     }
 
+    const box = await prisma.box.findUnique({
+      where: { boxId },
+      select: { name: true, boxId: true }
+    });
+
+    if (!box) {
+      throw new Error("Box not found.");
+    }
+
     await prisma.boxFollow.delete({
       where: {
         boxFollowId: existingFollow.boxFollowId,
       },
     });
 
-    return { message: "Successfully unfollowed the box." };
+    return {
+      message: "Successfully unfollowed the box.",
+      boxId: box.boxId,
+      boxName: box.name
+    };
   }
 };
 

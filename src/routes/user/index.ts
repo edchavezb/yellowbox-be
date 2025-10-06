@@ -106,7 +106,7 @@ routes.put("/:userId/profile-information", async (req, res) => {
     const updatedInfo = req.body;
     const updatedUser = await userService.updateUserProfileInfo(userId, updatedInfo);
 
-    return res.status(201).json(updatedUser);
+    return res.status(200).json(updatedUser);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Sorry, something went wrong :/" });

@@ -30,6 +30,9 @@ model User {
   followers       UserFollow[]               @relation("UserFollowing")
   followedUsers   UserFollow[]               @relation("UserFollowers")
   followedBoxes   BoxFollow[]
+  topAlbums       UserTopAlbum[]
+  bioActions      UpdateUserBioAction[]
+  imageActions    UpdateUserImageAction[]
 }
 
 model UserAccountManagementData {
@@ -139,6 +142,7 @@ model BoxAlbum {
   albumId     String
   note        String?
   position    Int
+  createdAt   DateTime             @default(now())
   box         Box                  @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
   album       Album                @relation(fields: [albumId], references: [spotifyId])
   subsections BoxSubsectionAlbum[] // Relation to subsections
@@ -150,6 +154,7 @@ model BoxTrack {
   trackId     String
   note        String?
   position    Int
+  createdAt   DateTime             @default(now())
   box         Box                  @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
   track       Track                @relation(fields: [trackId], references: [spotifyId])
   subsections BoxSubsectionTrack[] // Relation to subsections
@@ -161,6 +166,7 @@ model BoxArtist {
   artistId    String
   note        String?
   position    Int
+  createdAt   DateTime              @default(now())
   box         Box                   @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
   artist      Artist                @relation(fields: [artistId], references: [spotifyId])
   subsections BoxSubsectionArtist[] // Relation to subsections
@@ -172,6 +178,7 @@ model BoxPlaylist {
   playlistId    String
   note          String?
   position      Int
+  createdAt     DateTime                @default(now())
   box           Box                     @relation(fields: [boxId], references: [boxId], onDelete: Cascade)
   playlist      Playlist                @relation(fields: [playlistId], references: [spotifyId])
   subsections   BoxSubsectionPlaylist[] // Relation to subsections
@@ -361,17 +368,18 @@ model Artist {
 }
 
 model Album {
-  spotifyId   String        @id
-  name        String
-  images      Json
-  albumType   String
-  artists     Json
-  releaseDate String
-  totalTracks Int
-  type        String
-  boxes       BoxAlbum[]
-  queues      QueueAlbum[]
-  userPlays   PlayedAlbum[]
+  spotifyId       String         @id
+  name            String
+  images          Json
+  albumType       String
+  artists         Json
+  releaseDate     String
+  totalTracks     Int
+  type            String
+  boxes           BoxAlbum[]
+  queues          QueueAlbum[]
+  userPlays       PlayedAlbum[]
+  topAlbumEntries UserTopAlbum[]
 }
 
 model Playlist {
@@ -402,6 +410,35 @@ model Track {
   boxes            BoxTrack[]
   queues           QueueTrack[]
   userPlays        PlayedTrack[]
+}
+
+model UserTopAlbum {
+  topAlbumId String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  albumId    String
+  position   Int
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  album      Album    @relation(fields: [albumId], references: [spotifyId], onDelete: Cascade)
+
+  @@unique([userId, position]) // Ensure unique positions per user
+  @@unique([userId, albumId]) // Ensure no duplicate albums per user
+}
+
+model UpdateUserBioAction {
+  actionId   String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now())
+  newBioText String
+  user       User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+}
+
+model UpdateUserImageAction {
+  actionId    String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  createdAt   DateTime @default(now())
+  newImageUrl String
+  user        User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
 enum AccountTiers {

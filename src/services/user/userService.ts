@@ -346,30 +346,95 @@ const userService = {
     });
   },
   async updateUserProfileInfo(userId: string, updatedInfo: any) {
-    const { firstName, lastName } = updatedInfo;
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId
-      },
-      data: {
-        firstName,
-        lastName
-      }
-    });
+    const { firstName, lastName, bio } = updatedInfo;
+    const user = await prisma.user.findUnique({ where: { userId } });
+
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { userId },
+        data: {
+          firstName,
+          lastName,
+          bio
+        }
+      }),
+      // Only create bio action if bio was changed and new bio is different
+      ...(bio !== undefined && bio !== user?.bio
+        ? [
+          prisma.updateUserBioAction.create({
+            data: {
+              userId,
+              newBioText: bio || ""
+            }
+          })
+        ]
+        : [])
+    ]);
 
     return updatedUser;
   },
   async updateUserImage(userId: string, imageUrl: string) {
-    const updatedUser = await prisma.user.update({
-      where: {
-        userId
-      },
-      data: {
-        imageUrl
-      }
-    });
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { userId },
+        data: { imageUrl }
+      }),
+      prisma.updateUserImageAction.create({
+        data: {
+          userId,
+          newImageUrl: imageUrl
+        }
+      })
+    ]);
 
     return updatedUser;
+  },
+  async updateUserTopAlbum(userId: string, albumId: string, position: number) {
+    if (position < 1 || position > 5) {
+      throw new Error("Position must be between 1 and 5");
+    }
+
+    const existingTopAlbum = await prisma.userTopAlbum.findFirst({
+      where: {
+        userId,
+        albumId,
+      },
+    });
+
+    if (existingTopAlbum) {
+      throw new Error("This album is already in your top albums");
+    }
+
+    // Check if there's already an album in the target position
+    const existingPosition = await prisma.userTopAlbum.findFirst({
+      where: {
+        userId,
+        position,
+      },
+    });
+    
+    const updatedTopAlbum = await prisma.$transaction(async (tx) => {
+      if (existingPosition) {
+        await tx.userTopAlbum.delete({
+          where: {
+            topAlbumId: existingPosition.topAlbumId,
+          },
+        });
+      }
+
+      return tx.userTopAlbum.create({
+        data: {
+          userId,
+          albumId,
+          position,
+        },
+        include: {
+          album: true,
+        },
+      });
+    });
+
+    return updatedTopAlbum;
   },
   async verifyUserEmail(userId: string) {
     const updatedUserAccountData = await prisma.userAccountManagementData.update({
@@ -509,7 +574,7 @@ const userService = {
     });
 
     return users;
-  },
+  }
 };
 
 export default userService;

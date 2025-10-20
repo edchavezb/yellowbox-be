@@ -347,29 +347,15 @@ const userService = {
   },
   async updateUserProfileInfo(userId: string, updatedInfo: any) {
     const { firstName, lastName, bio } = updatedInfo;
-    const user = await prisma.user.findUnique({ where: { userId } });
-
-    const [updatedUser] = await prisma.$transaction([
-      prisma.user.update({
-        where: { userId },
-        data: {
-          firstName,
-          lastName,
-          bio
-        }
-      }),
-      // Only create bio action if bio was changed and new bio is different
-      ...(bio !== undefined && bio !== user?.bio
-        ? [
-          prisma.updateUserBioAction.create({
-            data: {
-              userId,
-              newBioText: bio || ""
-            }
-          })
-        ]
-        : [])
-    ]);
+    
+    const updatedUser = await prisma.user.update({
+      where: { userId },
+      data: {
+        firstName,
+        lastName,
+        bio
+      }
+    });
 
     return updatedUser;
   },
@@ -778,7 +764,7 @@ const userService = {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     // Fetch different types of activities in parallel
-    const [userFollows, boxFollows, bioUpdates, imageUpdates, topAlbums, newBoxes] = await Promise.all([
+    const [userFollows, boxFollows, imageUpdates, topAlbums, newBoxes] = await Promise.all([
       // Get user follows by followed users
       prisma.userFollow.findMany({
         where: {
@@ -838,29 +824,6 @@ const userService = {
               }
             }
           },
-          createdAt: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      }),
-      // Get bio updates by followed users
-      prisma.updateUserBioAction.findMany({
-        where: {
-          userId: { in: followedUserIds },
-          createdAt: { gte: thirtyDaysAgo }
-        },
-        select: {
-          user: {
-            select: {
-              userId: true,
-              username: true,
-              imageUrl: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          newBioText: true,
           createdAt: true
         },
         orderBy: {
@@ -953,11 +916,6 @@ const userService = {
         type: 'BOX_FOLLOW' as const,
         actor: item.user,
         box: { boxId: item.box.boxId, name: item.box.name, creator: item.box.creator },
-        timestamp: item.createdAt
-      })),
-      ...bioUpdates.map(item => ({
-        type: 'BIO_UPDATE' as const,
-        actor: item.user,
         timestamp: item.createdAt
       })),
       ...imageUpdates.map(item => ({

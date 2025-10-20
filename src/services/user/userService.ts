@@ -129,6 +129,11 @@ const userService = {
       where: { userId },
       select: {
         followedBoxes: {
+          where: {
+            box: {
+              isPublic: true
+            }
+          },
           select: {
             box: {
               select: {
@@ -347,7 +352,7 @@ const userService = {
   },
   async updateUserProfileInfo(userId: string, updatedInfo: any) {
     const { firstName, lastName, bio } = updatedInfo;
-    
+
     const updatedUser = await prisma.user.update({
       where: { userId },
       data: {
@@ -398,7 +403,7 @@ const userService = {
         position,
       },
     });
-    
+
     const updatedTopAlbum = await prisma.$transaction(async (tx) => {
       if (existingPosition) {
         await tx.userTopAlbum.delete({
@@ -588,7 +593,10 @@ const userService = {
       prisma.boxAlbum.findMany({
         where: {
           boxId: { in: followedBoxIds },
-          createdAt: { gte: thirtyDaysAgo }
+          createdAt: { gte: thirtyDaysAgo },
+          box: {
+            isPublic: true
+          }
         },
         select: {
           album: true,
@@ -617,7 +625,10 @@ const userService = {
       prisma.boxTrack.findMany({
         where: {
           boxId: { in: followedBoxIds },
-          createdAt: { gte: thirtyDaysAgo }
+          createdAt: { gte: thirtyDaysAgo },
+          box: {
+            isPublic: true
+          }
         },
         select: {
           track: true,
@@ -646,7 +657,10 @@ const userService = {
       prisma.boxArtist.findMany({
         where: {
           boxId: { in: followedBoxIds },
-          createdAt: { gte: thirtyDaysAgo }
+          createdAt: { gte: thirtyDaysAgo },
+          box: {
+            isPublic: true
+          }
         },
         select: {
           artist: true,
@@ -675,7 +689,10 @@ const userService = {
       prisma.boxPlaylist.findMany({
         where: {
           boxId: { in: followedBoxIds },
-          createdAt: { gte: thirtyDaysAgo }
+          createdAt: { gte: thirtyDaysAgo },
+          box: {
+            isPublic: true
+          }
         },
         select: {
           playlist: true,
@@ -800,7 +817,10 @@ const userService = {
       prisma.boxFollow.findMany({
         where: {
           userId: { in: followedUserIds },
-          createdAt: { gte: thirtyDaysAgo }
+          createdAt: { gte: thirtyDaysAgo },
+          box: {
+            isPublic: true
+          }
         },
         select: {
           user: {
@@ -880,6 +900,7 @@ const userService = {
       // Get newly created boxes by followed users
       prisma.box.findMany({
         where: {
+          isPublic: true,
           creatorId: { in: followedUserIds },
           createdAt: { gte: thirtyDaysAgo },
           deletedAt: null

@@ -574,6 +574,413 @@ const userService = {
     });
 
     return users;
+  },
+  async getFollowedBoxesActivityFeed(userId: string) {
+    // Get IDs of boxes that the current user follows
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      select: {
+        followedBoxes: {
+          select: {
+            boxId: true
+          }
+        }
+      }
+    });
+
+    if (!user?.followedBoxes.length) {
+      return [];
+    }
+
+    const followedBoxIds = user.followedBoxes.map(f => f.boxId);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Fetch different types of box items added in parallel
+    const [albums, tracks, artists, playlists] = await Promise.all([
+      // Get albums added to followed boxes
+      prisma.boxAlbum.findMany({
+        where: {
+          boxId: { in: followedBoxIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          album: true,
+          box: {
+            select: {
+              boxId: true,
+              name: true,
+              creator: {
+                select: {
+                  userId: true,
+                  username: true,
+                  imageUrl: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get tracks added to followed boxes
+      prisma.boxTrack.findMany({
+        where: {
+          boxId: { in: followedBoxIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          track: true,
+          box: {
+            select: {
+              boxId: true,
+              name: true,
+              creator: {
+                select: {
+                  userId: true,
+                  username: true,
+                  imageUrl: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get artists added to followed boxes
+      prisma.boxArtist.findMany({
+        where: {
+          boxId: { in: followedBoxIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          artist: true,
+          box: {
+            select: {
+              boxId: true,
+              name: true,
+              creator: {
+                select: {
+                  userId: true,
+                  username: true,
+                  imageUrl: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get playlists added to followed boxes
+      prisma.boxPlaylist.findMany({
+        where: {
+          boxId: { in: followedBoxIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          playlist: true,
+          box: {
+            select: {
+              boxId: true,
+              name: true,
+              creator: {
+                select: {
+                  userId: true,
+                  username: true,
+                  imageUrl: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    ]);
+
+    // Transform and combine all activities
+    const activities = [
+      ...albums.map(item => ({
+        type: 'BOX_ITEM_ADD' as const,
+        actor: item.box.creator,
+        box: { boxId: item.box.boxId, name: item.box.name },
+        itemType: 'album' as const,
+        item: item.album,
+        timestamp: item.createdAt
+      })),
+      ...tracks.map(item => ({
+        type: 'BOX_ITEM_ADD' as const,
+        actor: item.box.creator,
+        box: { boxId: item.box.boxId, name: item.box.name },
+        itemType: 'track' as const,
+        item: item.track,
+        timestamp: item.createdAt
+      })),
+      ...artists.map(item => ({
+        type: 'BOX_ITEM_ADD' as const,
+        actor: item.box.creator,
+        box: { boxId: item.box.boxId, name: item.box.name },
+        itemType: 'artist' as const,
+        item: item.artist,
+        timestamp: item.createdAt
+      })),
+      ...playlists.map(item => ({
+        type: 'BOX_ITEM_ADD' as const,
+        actor: item.box.creator,
+        box: { boxId: item.box.boxId, name: item.box.name },
+        itemType: 'playlist' as const,
+        item: item.playlist,
+        timestamp: item.createdAt
+      }))
+    ];
+
+    // Sort all activities by timestamp, most recent first
+    return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  },
+
+  async getFollowedUsersActivityFeed(userId: string) {
+    // Get IDs of users that the current user follows
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      select: {
+        followedUsers: {
+          select: {
+            followedUserId: true
+          }
+        }
+      }
+    });
+
+    if (!user?.followedUsers.length) {
+      return [];
+    }
+
+    const followedUserIds = user.followedUsers.map(f => f.followedUserId);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Fetch different types of activities in parallel
+    const [userFollows, boxFollows, bioUpdates, imageUpdates, topAlbums, newBoxes] = await Promise.all([
+      // Get user follows by followed users
+      prisma.userFollow.findMany({
+        where: {
+          followerId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          follower: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          followedUser: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get box follows by followed users
+      prisma.boxFollow.findMany({
+        where: {
+          userId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          box: {
+            select: {
+              boxId: true,
+              name: true,
+              creator: {
+                select: {
+                  userId: true,
+                  username: true,
+                }
+              }
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get bio updates by followed users
+      prisma.updateUserBioAction.findMany({
+        where: {
+          userId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          newBioText: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get image updates by followed users
+      prisma.updateUserImageAction.findMany({
+        where: {
+          userId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          newImageUrl: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get top album updates by followed users
+      prisma.userTopAlbum.findMany({
+        where: {
+          userId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        select: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          album: true,
+          position: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      // Get newly created boxes by followed users
+      prisma.box.findMany({
+        where: {
+          creatorId: { in: followedUserIds },
+          createdAt: { gte: thirtyDaysAgo },
+          deletedAt: null
+        },
+        select: {
+          boxId: true,
+          name: true,
+          creator: {
+            select: {
+              userId: true,
+              username: true,
+              imageUrl: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    ]);
+
+    // Transform and combine all activities
+    const activities = [
+      ...userFollows.map(item => ({
+        type: 'USER_FOLLOW' as const,
+        actor: item.follower,
+        followedUser: item.followedUser,
+        timestamp: item.createdAt
+      })),
+      ...boxFollows.map(item => ({
+        type: 'BOX_FOLLOW' as const,
+        actor: item.user,
+        box: { boxId: item.box.boxId, name: item.box.name, creator: item.box.creator },
+        timestamp: item.createdAt
+      })),
+      ...bioUpdates.map(item => ({
+        type: 'BIO_UPDATE' as const,
+        actor: item.user,
+        timestamp: item.createdAt
+      })),
+      ...imageUpdates.map(item => ({
+        type: 'IMAGE_UPDATE' as const,
+        actor: item.user,
+        timestamp: item.createdAt
+      })),
+      ...topAlbums.map(item => ({
+        type: 'TOP_ALBUM_UPDATE' as const,
+        actor: item.user,
+        item: item.album,
+        timestamp: item.createdAt
+      })),
+      ...newBoxes.map(item => ({
+        type: 'BOX_CREATE' as const,
+        actor: item.creator,
+        box: { boxId: item.boxId, name: item.name },
+        timestamp: item.createdAt
+      }))
+    ];
+
+    // Sort all activities by timestamp, most recent first
+    return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 };
 

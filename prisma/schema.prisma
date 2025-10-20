@@ -31,7 +31,6 @@ model User {
   followedUsers   UserFollow[]               @relation("UserFollowers")
   followedBoxes   BoxFollow[]
   topAlbums       UserTopAlbum[]
-  bioActions      UpdateUserBioAction[]
   imageActions    UpdateUserImageAction[]
 }
 
@@ -423,14 +422,6 @@ model UserTopAlbum {
 
   @@unique([userId, position]) // Ensure unique positions per user
   @@unique([userId, albumId]) // Ensure no duplicate albums per user
-}
-
-model UpdateUserBioAction {
-  actionId   String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  createdAt  DateTime @default(now())
-  newBioText String
-  user       User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
 model UpdateUserImageAction {

@@ -27,6 +27,33 @@ routes.get("/me/followed-boxes", authenticate, async (req, res) => {
   res.status(200).json({followedBoxes: followedItems});
 });
 
+// Get the authenticated user's activity feed from followed users and boxes
+routes.get("/me/feed", authenticate, async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { source } = req.query;
+
+    // Validate source param if provided
+    if (source && typeof source === 'string' && !['users', 'boxes'].includes(source)) {
+      return res.status(400).json({ error: "Invalid source parameter. Use 'users' or 'boxes'" });
+    }
+
+    // Get activities based on source parameter
+    const activities = await Promise.all([
+      !source || source === 'users' ? userService.getFollowedUsersActivityFeed(userId) : [],
+      !source || source === 'boxes' ? userService.getFollowedBoxesActivityFeed(userId) : []
+    ]).then(([userActivities, boxActivities]) => 
+      // Combine and sort all activities by timestamp, most recent first
+      [...userActivities, ...boxActivities].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    );
+
+    return res.status(200).json({ activities });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
 // Get user data by username
 routes.get("/user-page/:username", attachCurrentUser, async (req, res) => {
   try {

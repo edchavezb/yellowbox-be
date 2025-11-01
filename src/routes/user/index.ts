@@ -5,6 +5,7 @@ import { SpotifyAccountDTO, UserCreateDTO } from "../../types/interfaces";
 import userService from "../../services/user/userService";
 import boxService from "../../services/box/boxService";
 import folderService from "../../services/folder/folderService";
+import albumService from "../../services/item/albumService";
 import attachCurrentUser from "../../middleware/attachCurrentUser";
 import avatarUploadService from "../../services/user/avatarUploadService";
 
@@ -369,5 +370,59 @@ routes.post("/upload-user-image", authenticate, avatarUploadService.upload.singl
     return res.status(500).json({ error: "Failed to upload and update avatar." });
   }
 });
+
+// Add an album to a user's top albums
+routes.post("/me/top-albums", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { position, albumData } = req.body;
+
+    if (!albumData || !position || typeof position !== 'number') {
+      return res.status(400).json({ error: 'Missing album data or position (number).' });
+    }
+
+    const album = await albumService.createAlbum(albumData);
+    const topAlbum = await userService.updateUserTopAlbum(userId, album.spotifyId, position);
+
+    return res.status(201).json(topAlbum);
+  } catch (error) {
+    console.error(error);
+
+    if (error instanceof Error && error.message === "This album is already in your top albums") {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+// Remove an album from a user's top albums
+routes.delete("/me/top-albums/:topAlbumId", authenticate, async (req, res) => {
+  try {
+    const viewingUserId = req.user.userId;
+    const { topAlbumId } = req.params;
+
+    const deleted = await userService.removeUserTopAlbum(viewingUserId, topAlbumId);
+
+    return res.status(200).json(deleted);
+  } catch (error) {
+    console.error(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return res.status(404).json({ error: 'Top album not found.' });
+    }
+
+    if (error instanceof Error && error.message === 'Top album not found') {
+      return res.status(404).json({ error: 'Top album not found.' });
+    }
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return res.status(403).json({ error: 'You are not authorized to modify this user\'s top albums.' });
+    }
+
+    return res.status(500).json({ error: "Sorry, something went wrong :/" });
+  }
+});
+
+
 
 export default routes;

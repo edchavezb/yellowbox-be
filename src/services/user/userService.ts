@@ -25,6 +25,14 @@ const userService = {
             position: "asc",
           },
         },
+        topAlbums: {
+          include: {
+            album: true
+          },
+          orderBy: {
+            position: "asc"
+          }
+        },
         folders: {
           select: {
             folderId: true,
@@ -426,6 +434,41 @@ const userService = {
     });
 
     return updatedTopAlbum;
+  },
+  async removeUserTopAlbum(userId: string, topAlbumId: string) {
+    const entry = await prisma.userTopAlbum.findUnique({
+      where: { topAlbumId }
+    });
+
+    if (!entry) {
+      throw new Error('Top album not found');
+    }
+
+    if (entry.userId !== userId) {
+      // Guard: ensure caller is operating on their own top albums
+      throw new Error('Unauthorized');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.userTopAlbum.delete({
+        where: { topAlbumId },
+        include: { album: true }
+      });
+
+      await tx.userTopAlbum.updateMany({
+        where: {
+          userId: entry.userId,
+          position: { gt: entry.position }
+        },
+        data: {
+          position: { decrement: 1 }
+        }
+      });
+
+      return deleted;
+    });
+
+    return result;
   },
   async verifyUserEmail(userId: string) {
     const updatedUserAccountData = await prisma.userAccountManagementData.update({

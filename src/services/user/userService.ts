@@ -181,6 +181,14 @@ const userService = {
         userId,
       },
       include: {
+        topAlbums: {
+          include: {
+            album: true
+          },
+          orderBy: {
+            position: "asc"
+          }
+        },
         folders: {
           select: {
             folderId: true,
@@ -217,6 +225,14 @@ const userService = {
         username,
       },
       include: {
+        topAlbums: {
+          include: {
+            album: true
+          },
+          orderBy: {
+            position: "asc"
+          }
+        },
         folders: {
           select: {
             folderId: true,
